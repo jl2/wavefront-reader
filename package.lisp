@@ -18,9 +18,5 @@
 (defpackage :wavefront-reader
   (:use #:cl #:j-utils #:alexandria)
   (:export #:read-obj
-           #:to-gl-vertex
-           #:to-gl-vertex-normal
-           #:to-gl-vertex-normal-color
-           #:to-gl-vertex-color
-           #:to-gl-vertex-normal-texture
-           #:to-gl-vertex-normal-color-texture))
+           #:read-obj-from-file
+           #:to-open-gl))

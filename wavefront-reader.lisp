@@ -216,81 +216,85 @@
                   (error 'invalid-line-index :index oper))))
       indices)))
 
-(defun read-obj (file-name)
+(defun read-obj (ins)
   "Read a WaveFront OBJ file into memory."
+  (let ((obj-file (make-instance 'wavefront-file))
+        (cur-object (make-instance 'wavefront-object))
+        (str-to-slot '(("v" . vertices)
+                       ("vn" . normals)
+                       ("vt" . tex-coords)
+                       ("vp" . v-params))))
+    (loop
+       for line = (read-line ins nil)
+       while line do
+         (let* ((parts (cl-ppcre:split "\\s" line))
+                (operator (car parts))
+                (operands (cdr parts)))
+           ;; (format t "~a~%" operator)
+           (cond
+             ;; Comment
+             ((char= #\# (aref operator 0))
+              t)
+
+             ;; Group - operands are group names
+             ((string= "g" operator)
+              (with-slots (groups) cur-object
+                (setf groups operands)))
+
+             ;; object name - operands are words of the name
+             ((string= "o" operator)
+              (with-slots (object-name) cur-object
+                ;; TODO: When new object is encountered, push current object onto list of objects
+                ;; and initialize a new object.
+                (setf object-name (format nil "~{~a~^ ~}" operands))))
+
+             ;; Vertex - operands are x y z [w]
+             ;; Vertex - operands are  i j k
+             ;; Texture coordinate - operands are  u [v [w]]
+             ;; Vertex parameter - operands are u [v [w]]
+             ((or (string= "v" operator)
+                  (string= "vn" operator)
+                  (string= "vt" operator)
+                  (string= "vp" operator))
+              ;; Use operator to look up correct slot name
+              (let ((slot-name (assoc-value str-to-slot operator :test #'string=)))
+                ;; (format t "Adding: ~{~a~^, ~} to ~a~%" operands slot-name)
+                (dolist (vp operands)
+                  ;; push value onto slot
+                  (vector-push-extend 
+                   (coerce (read-from-string vp) 'single-float)
+                   (slot-value obj-file slot-name)))))
+
+             ;; Points - operands are vertex indices
+             ;; p 1 2 3
+             ((string= "p" operator)
+              (dolist (idx operands)
+                ;; Points are indexed by single integers
+                (with-slots (points) cur-object
+                  (vector-push-extend
+                   (map-index obj-file 'vertices (the fixnum (read-from-string idx)))
+                   points))))
+
+             ;; Lines - operands are vertex and optional texture parameter indices
+             ;; l 1/1 2/2 3/3
+             ((string= "l" operator)
+              (with-slots (lines) cur-object
+                (vector-push-extend (read-obj-line obj-file operands) lines)))
+
+             ;; Faces - operands are vertex, optional texture parameter, and optional normal indices
+             ;; f 1//1 2//2 3//3
+             ;; f 1/1/1 2/2/2 3/3/3
+             ;; f 1/1 2/2 3/3
+             ((string= "f" operator)
+              (with-slots (faces) cur-object
+                (vector-push-extend (read-obj-face obj-file operands) faces)))
+             )))
+    obj-file))
+
+(defun read-obj-from-file (file-name)
   (with-input-from-file (ins file-name)
-    (let ((obj-file (make-instance 'wavefront-file))
-          (cur-object (make-instance 'wavefront-object))
-          (str-to-slot '(("v" . vertices)
-                         ("vn" . normals)
-                         ("vt" . tex-coords)
-                         ("vp" . v-params))))
-      (loop
-         for line = (read-line ins nil)
-         while line do
-           (let* ((parts (cl-ppcre:split "\\s" line))
-                  (operator (car parts))
-                  (operands (cdr parts)))
-             ;; (format t "~a~%" operator)
-             (cond
-               ;; Comment
-               ((char= #\# (aref operator 0))
-                t)
+    (read-obj ins)))
 
-               ;; Group - operands are group names
-               ((string= "g" operator)
-                (with-slots (groups) cur-object
-                  (setf groups operands)))
-
-               ;; object name - operands are words of the name
-               ((string= "o" operator)
-                (with-slots (object-name) cur-object
-                  ;; TODO: When new object is encountered, push current object onto list of objects
-                  ;; and initialize a new object.
-                  (setf object-name (format nil "~{~a~^ ~}" operands))))
-
-               ;; Vertex - operands are x y z [w]
-               ;; Vertex - operands are  i j k
-               ;; Texture coordinate - operands are  u [v [w]]
-               ;; Vertex parameter - operands are u [v [w]]
-               ((or (string= "v" operator)
-                    (string= "vn" operator)
-                    (string= "vt" operator)
-                    (string= "vp" operator))
-                ;; Use operator to look up correct slot name
-                (let ((slot-name (assoc-value str-to-slot operator :test #'string=)))
-                  ;; (format t "Adding: ~{~a~^, ~} to ~a~%" operands slot-name)
-                  (dolist (vp operands)
-                    ;; push value onto slot
-                    (vector-push-extend 
-                     (coerce (read-from-string vp) 'single-float)
-                     (slot-value obj-file slot-name)))))
-
-               ;; Points - operands are vertex indices
-               ;; p 1 2 3
-               ((string= "p" operator)
-                (dolist (idx operands)
-                  ;; Points are indexed by single integers
-                  (with-slots (points) cur-object
-                    (vector-push-extend
-                     (map-index obj-file 'vertices (the fixnum (read-from-string idx)))
-                     points))))
-
-               ;; Lines - operands are vertex and optional texture parameter indices
-               ;; l 1/1 2/2 3/3
-               ((string= "l" operator)
-                (with-slots (lines) cur-object
-                  (vector-push-extend (read-obj-line obj-file operands) lines)))
-
-               ;; Faces - operands are vertex, optional texture parameter, and optional normal indices
-               ;; f 1//1 2//2 3//3
-               ;; f 1/1/1 2/2/2 3/3/3
-               ;; f 1/1 2/2 3/3
-               ((string= "f" operator)
-                (with-slots (faces) cur-object
-                  (vector-push-extend (read-obj-face obj-file operands) faces)))
-               )))
-      obj-file)))
 
 (defun to-open-gl (obj format)
   "Return arrays of vertex and index data, suitable for rendering with OpenGL."
