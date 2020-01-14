@@ -1,0 +1,18 @@
+* wavefront-reader
+** About
+Read Wavefront OBJ files into memory and convert to OpenGL formats.
+
+** License
+ISC
+
+
+Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
+
+
+
+
+* Plan
+** TODO Read faces and lines
+** TODO Handle multiple objects and groups
+** TODO Read from stream
+** TODO Add unit tests
