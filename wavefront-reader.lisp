@@ -44,9 +44,8 @@
   (:documentation "A Wavefront OBJ line."))
 
 
-(defclass wavefront-object ()
-  ((object-name :initform nil :type (or null string))
-   (groups :initform nil :type (or null list))
+(defclass wavefront-group ()
+  ((group-name :initarg :group-name :type (or null string))
    (faces :initform (make-array 0
                                 :element-type 'wavefront-face
                                 :initial-contents '()
@@ -65,50 +64,18 @@
 
   (:documentation "An object in a WaveFront OBJ file."))
 
-(defclass wavefront-file ()
-  ((vertices :initform (make-array 0
-                                   :element-type 'single-float
-                                   :initial-contents '()
-                                   :adjustable t
-                                   :fill-pointer 0))
-   (normals :initform (make-array 0
-                                  :element-type 'single-float
-                                  :initial-contents '()
-                                  :adjustable t
-                                  :fill-pointer 0))
-   (tex-coords :initform (make-array 0
-                                     :element-type 'single-float
-                                     :initial-contents '()
-                                     :adjustable t
-                                     :fill-pointer 0))
-   (v-params :initform (make-array 0
-                                   :element-type 'single-float
-                                   :initial-contents '()
-                                   :adjustable t
-                                   :fill-pointer 0))
-   (objects :initform (make-array 0
-                                   :element-type 'wavefront-object
-                                   :initial-contents '()
-                                   :adjustable t
-                                   :fill-pointer 0)))
-  (:documentation "A WaveFront OBJ file."))
-
-
-(define-condition invalid-obj-index (error)
-  ((index :initarg :index :reader index)))
-
-(define-condition invalid-line-index (error)
-  ((index :initarg :index :reader index)))
-
-(define-condition invalid-face-index (error)
-  ((index :initarg :index :reader index)
-   (part-count :initarg :part-count :reader part-count)
-   (stride :initarg :stride :reader stride)))
+(defun add-point (object group operands)
+  (dolist (idx operands)
+    ;; Points are indexed by single integers
+    (with-slots (points) group
+      (vector-push-extend
+       (map-index object 'vertices (the fixnum (read-from-string idx)))
+       points))))
 
 (defun map-index (file type idx)
-  (cond ((> 0 idx)
+  (cond ((< 0 idx)
          (1- idx))
-        ((< 0 idx)
+        ((> 0 idx)
          (+ (length (slot-value file type)) idx))
         (t
          (error 'invalid-obj-index :index idx))))
@@ -116,7 +83,38 @@
 (defun slash-p (char)
  (char= #\/ char))
 
-(defun read-obj-face (file operands)
+(defun read-obj-line (object operands)
+  (when operands
+    (let* ((first-index (str:split "/" (car operands) :omit-nulls nil))
+           (expected-indices (length first-index))
+           (indices (make-array (* (length operands) (length first-index))
+                                :element-type 'fixnum)))
+      (loop
+         for i = 0 then (+ i len-parts)
+         for oper in operands
+         for parts = (str:split "/" oper :omit-nulls nil)
+         for len-parts = (length parts)
+         do
+           (cond ((/= len-parts expected-indices)
+                  (error 'invalid-line-index :index oper))
+
+                 ((or (= 1 len-parts)
+                      (= 2 len-parts))
+                  (loop
+                     for offset from 0
+                     for idx in parts
+                     do (setf (aref indices (+ offset i))
+                              (map-index object 'vertices (the fixnum (read-from-string idx))))))
+                 (t
+                  (error 'invalid-line-index :index oper))))
+      indices)))
+
+(defun add-line (object group operands)
+  (with-slots (lines) group
+    (vector-push-extend (read-obj-line object operands) lines)))
+
+
+(defun read-obj-face (object operands)
   (when operands
     (let* ((first-index (str:split "/" (car operands) :omit-nulls nil))
            (index-len (length first-index))
@@ -184,49 +182,82 @@
                      for offset from 0
                      for idx in parts
                      do (setf (aref indices (+ offset i))
-                              (map-index file 'vertices (the fixnum (read-from-string idx))))))
+                              (map-index object 'vertices (the fixnum (read-from-string idx))))))
                  (t
                   (error 'invalid-line-index :index oper))))
       indices)))
 
-(defun read-obj-line (file operands)
-  (when operands
-    
-    (let* ((first-index (str:split "/" (car operands) :omit-nulls nil))
-           (expected-indices (length first-index))
-           (indices (make-array (* (length operands) (length first-index))
-                                :element-type 'fixnum)))
-      (loop
-         for i = 0 then (+ i len-parts)
-         for oper in operands
-         for parts = (str:split "/" oper :omit-nulls nil)
-         for len-parts = (length parts)
-         do
-           (cond ((/= len-parts expected-indices)
-                  (error 'invalid-line-index :index oper))
+(defun add-face (object group operands)
+  (with-slots (faces) group
+    (vector-push-extend (read-obj-face object operands) faces)))
 
-                 ((or (= 1 len-parts)
-                      (= 2 len-parts))
-                  (loop
-                     for offset from 0
-                     for idx in parts
-                     do (setf (aref indices (+ offset i))
-                              (map-index file 'vertices (the fixnum (read-from-string idx))))))
-                 (t
-                  (error 'invalid-line-index :index oper))))
-      indices)))
+(defclass wavefront-object ()
+  ((object-name :initarg :object-name :type (or null string))
+   (vertices :initform (make-array 0
+                                   :element-type 'single-float
+                                   :initial-contents '()
+                                   :adjustable t
+                                   :fill-pointer 0))
+   (normals :initform (make-array 0
+                                  :element-type 'single-float
+                                  :initial-contents '()
+                                  :adjustable t
+                                  :fill-pointer 0))
+   (tex-coords :initform (make-array 0
+                                     :element-type 'single-float
+                                     :initial-contents '()
+                                     :adjustable t
+                                     :fill-pointer 0))
+   (v-params :initform (make-array 0
+                                   :element-type 'single-float
+                                   :initial-contents '()
+                                   :adjustable t
+                                   :fill-pointer 0))
+   (groups :initform (make-array 0
+                                   :element-type 'wavefront-group
+                                   :initial-contents '()
+                                   :adjustable t
+                                   :fill-pointer 0)))
+  (:documentation "A WaveFront OBJ file."))
+
+(defun add-group (obj group)
+  (with-slots (groups) obj
+    (vector-push-extend group groups)))
+
+(defun add-data (obj operator operands)
+  (let ((slot-name (assoc-value '(("v" . vertices)
+                                   ("vn" . normals)
+                                   ("vt" . tex-coords)
+                                   ("vp" . v-params))
+                                 operator :test #'string=)))
+    (dolist (vp operands)
+      (vector-push-extend 
+       (coerce (read-from-string vp) 'single-float)
+       (slot-value obj slot-name)))))
+
+
+(define-condition invalid-obj-index (error)
+  ((index :initarg :index :reader index)))
+
+(define-condition invalid-line-index (error)
+  ((index :initarg :index :reader index)))
+
+(define-condition invalid-face-index (error)
+  ((index :initarg :index :reader index)
+   (part-count :initarg :part-count :reader part-count)
+   (stride :initarg :stride :reader stride)))
+
+
 
 (defun read-obj (ins)
   "Read a WaveFront OBJ file into memory."
-  (let ((obj-file (make-instance 'wavefront-file))
-        (cur-object (make-instance 'wavefront-object))
-        (str-to-slot '(("v" . vertices)
-                       ("vn" . normals)
-                       ("vt" . tex-coords)
-                       ("vp" . v-params))))
+  (let ((all-objects nil)
+        (current-group nil)
+        (current-object nil))
     (loop
        for line = (read-line ins nil)
-       while line do
+       while line
+       do
          (let* ((parts (cl-ppcre:split "\\s" line))
                 (operator (car parts))
                 (operands (cdr parts)))
@@ -238,15 +269,15 @@
 
              ;; Group - operands are group names
              ((string= "g" operator)
-              (with-slots (groups) cur-object
-                (setf groups operands)))
+              (when current-group
+                (add-group current-object current-group))
+              (setf current-group (make-instance 'wavefront-group :group-name (format nil "~{~a~^ ~}" operands))))
 
              ;; object name - operands are words of the name
              ((string= "o" operator)
-              (with-slots (object-name) cur-object
-                ;; TODO: When new object is encountered, push current object onto list of objects
-                ;; and initialize a new object.
-                (setf object-name (format nil "~{~a~^ ~}" operands))))
+              (when current-object
+                (push current-object all-objects))
+              (setf current-object (make-instance 'wavefront-object :object-name (format nil "~{~a~^ ~}" operands))))
 
              ;; Vertex - operands are x y z [w]
              ;; Vertex - operands are  i j k
@@ -256,40 +287,34 @@
                   (string= "vn" operator)
                   (string= "vt" operator)
                   (string= "vp" operator))
+              (add-data current-object operator operands))
               ;; Use operator to look up correct slot name
-              (let ((slot-name (assoc-value str-to-slot operator :test #'string=)))
-                ;; (format t "Adding: ~{~a~^, ~} to ~a~%" operands slot-name)
-                (dolist (vp operands)
-                  ;; push value onto slot
-                  (vector-push-extend 
-                   (coerce (read-from-string vp) 'single-float)
-                   (slot-value obj-file slot-name)))))
+
 
              ;; Points - operands are vertex indices
              ;; p 1 2 3
              ((string= "p" operator)
-              (dolist (idx operands)
-                ;; Points are indexed by single integers
-                (with-slots (points) cur-object
-                  (vector-push-extend
-                   (map-index obj-file 'vertices (the fixnum (read-from-string idx)))
-                   points))))
+              (add-point current-object current-group operands))
 
              ;; Lines - operands are vertex and optional texture parameter indices
              ;; l 1/1 2/2 3/3
              ((string= "l" operator)
-              (with-slots (lines) cur-object
-                (vector-push-extend (read-obj-line obj-file operands) lines)))
+              (add-line current-object current-group operands))
 
              ;; Faces - operands are vertex, optional texture parameter, and optional normal indices
              ;; f 1//1 2//2 3//3
              ;; f 1/1/1 2/2/2 3/3/3
              ;; f 1/1 2/2 3/3
              ((string= "f" operator)
-              (with-slots (faces) cur-object
-                (vector-push-extend (read-obj-face obj-file operands) faces)))
-             )))
-    obj-file))
+              (add-face current-object current-group operands))
+
+             (t
+              (format t "Unhandled operator ~a~%" operator)))))
+    (when current-group
+      (add-group current-object current-group))
+    (when current-object
+      (push current-object all-objects))
+    all-objects))
 
 (defun read-obj-from-file (file-name)
   (with-input-from-file (ins file-name)

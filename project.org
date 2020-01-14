@@ -12,12 +12,5 @@ Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
 
 
 * Plan
-** TODO Read faces and lines
-** TODO Handle multiple objects and groups
-** TODO Read from stream
 ** TODO Add unit tests
-** TODO Fix nesting
-Object -> vertices, normals, groups
-group -> faces, lines, points
-** TODO Create obj-group class
 ** TODO Add material to obj-group
