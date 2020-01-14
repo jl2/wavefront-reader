@@ -23,5 +23,6 @@
   :serial t
   :depends-on (#:j-utils #:alexandria #:str)
   :components ((:file "package")
+               (:file "material-reader")
                (:file "wavefront-reader"))
   :in-order-to ((test-op (test-op wavefront-reader.test))))

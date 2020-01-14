@@ -18,5 +18,7 @@
 (defpackage :wavefront-reader
   (:use #:cl #:j-utils #:alexandria)
   (:export #:read-obj
+           #:read-mtl
            #:read-obj-from-file
+           #:read-mtl-from-file
            #:to-open-gl))
