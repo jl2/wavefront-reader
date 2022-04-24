@@ -7,7 +7,6 @@ Read Wavefront OBJ files into memory and convert to OpenGL formats.
 
 ISC
 
-
-Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
+Copyright (c) 2022 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
 
 

@@ -1,7 +1,6 @@
-;;;; material-reader.lisp
+;; material-reader.lisp
 ;;
-;; Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
-
+;; Copyright (c) 2022 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
 
 ;; Permission to use, copy, modify, and/or distribute this software for any
 ;; purpose with or without fee is hereby granted, provided that the above
@@ -15,10 +14,9 @@
 ;; ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 ;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-(in-package :wavefront-reader)
+(in-package :obj-reader)
 
-
-(defclass wavefront-material ()
+(defclass obj-material ()
   ((material-name :initarg :material-name :type string)
    (attributes :initform (make-hash-table :test 'equal))))
 
@@ -33,7 +31,7 @@
                                                (car attrib-value)))))
 
 (defun read-mtl (ins)
-  "Read a WaveFront OBJ file into memory."
+  "Read a Wavefront .mtl material file into memory."
   (let ((all-mtls nil)
         (current-mtl nil))
     (loop
@@ -54,7 +52,7 @@
               (when current-mtl
                 (push current-mtl all-mtls))
               (setf current-mtl
-                    (make-instance 'wavefront-material
+                    (make-instance 'obj-material
                                    :material-name (format nil "~{~a~^ ~}" operands))))
              (operator
               (set-attribute current-mtl operator (mapcar #'read-from-string operands))))))

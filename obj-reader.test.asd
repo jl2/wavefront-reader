@@ -1,7 +1,6 @@
-;;;; wavefront-reader.test.asd 
+;; obj-reader.test.asd
 ;;
-;; Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
-
+;; Copyright (c) 2022 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
 
 ;; Permission to use, copy, modify, and/or distribute this software for any
 ;; purpose with or without fee is hereby granted, provided that the above
@@ -16,20 +15,23 @@
 ;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 (in-package :cl-user)
-(defpackage :wavefront-reader.test-asd
+(defpackage :obj-reader.test-asd
   (:use :cl :asdf))
-(in-package :wavefront-reader.test-asd)
+(in-package :obj-reader.test-asd)
 
-(asdf:defsystem #:wavefront-reader.test
-  :description "Test wavefront-reader"
+(asdf:defsystem #:obj-reader.test
+  :description "Test obj-reader"
   :author "Jeremiah LaRocco <jeremiah_larocco@fastmail.com>"
   :license  "ISC"
   :version "0.0.1"
   :serial t
   :depends-on ( :wavefront-reader
                   :fiveam)
-  
   :components ((:module "t"
-                        :components 
-                        ((:file "package"))))
-  :perform (test-op :after (op c) (eval (read-from-string "(every #'fiveam::TEST-PASSED-P (5am:run :wavefront-reader))"))))
+                :components
+                ((:file "package"))))
+  :perform
+  (test-op :after (op c)
+           (eval
+            (read-from-string
+             "(every #'fiveam::TEST-PASSED-P (5am:run :obj-reader))"))))

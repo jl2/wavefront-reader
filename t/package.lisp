@@ -1,7 +1,6 @@
-;;;; package.lisp
+;; package.lisp
 ;;
-;; Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
-
+;; Copyright (c) 2022 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
 
 ;; Permission to use, copy, modify, and/or distribute this software for any
 ;; purpose with or without fee is hereby granted, provided that the above
@@ -16,16 +15,16 @@
 ;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 (in-package :cl-user)
-(defpackage :wavefront-reader.test
+(defpackage :obj-reader.test
   (:use :cl
         :fiveam
         :alexandria
-        :wavefront-reader))
+        :obj-reader))
 
-(in-package :wavefront-reader.test)
+(in-package :obj-reader.test)
 
-(def-suite :wavefront-reader)
-(in-suite :wavefront-reader)
+(def-suite :obj-reader)
+(in-suite :obj-reader)
 
 (test read-obj
-  (is-true (wavefront-reader:read-obj )))
+  (is-true (obj-reader:read-obj )))

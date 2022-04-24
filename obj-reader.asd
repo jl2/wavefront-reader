@@ -1,7 +1,6 @@
-;;;; wavefront-reader.asd 
+;; obj-reader.asd
 ;;
-;; Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
-
+;; Copyright (c) 2022 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
 
 ;; Permission to use, copy, modify, and/or distribute this software for any
 ;; purpose with or without fee is hereby granted, provided that the above
@@ -15,14 +14,14 @@
 ;; ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 ;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-(asdf:defsystem #:wavefront-reader
-  :description "Describe wavefront-reader here"
+(asdf:defsystem #:obj-reader
+  :description "Read Wavefront .obj files."
   :author "Jeremiah LaRocco <jeremiah_larocco@fastmail.com>"
   :license  "ISC"
   :version "0.0.1"
   :serial t
   :depends-on (#:j-utils #:alexandria #:str)
   :components ((:file "package")
-               (:file "material-reader")
-               (:file "wavefront-reader"))
-  :in-order-to ((test-op (test-op wavefront-reader.test))))
+               (:file "mtl-reader")
+               (:file "obj-reader"))
+  :in-order-to ((test-op (test-op obj-reader.test))))

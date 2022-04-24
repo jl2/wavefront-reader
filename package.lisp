@@ -1,7 +1,6 @@
-;;;; package.lisp 
+;; package.lisp
 ;;
-;; Copyright (c) 2020 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
-
+;; Copyright (c) 2022 Jeremiah LaRocco <jeremiah_larocco@fastmail.com>
 
 ;; Permission to use, copy, modify, and/or distribute this software for any
 ;; purpose with or without fee is hereby granted, provided that the above
@@ -15,10 +14,17 @@
 ;; ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 ;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-(defpackage :wavefront-reader
-  (:use #:cl #:j-utils #:alexandria)
+(defpackage :obj-reader
+  (:use #:cl #:alexandria)
   (:export #:read-obj
            #:read-mtl
            #:read-obj-from-file
            #:read-mtl-from-file
-           #:to-open-gl))
+           #:objects
+           #:materials
+           #:vertices
+           #:groups
+           #:normals
+           #:tex-coords
+           #:object-name
+           ))
