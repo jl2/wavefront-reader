@@ -270,7 +270,7 @@
              ;; object name - operands are words of the name
              ((string= "o" operator)
               (when current-object
-                (push (finalize current-object) all-objects))
+                (push current-object all-objects))
               (setf current-object
                     (make-instance 'obj-object
                                    :object-name (format nil "~{~a~^ ~}" operands))))
@@ -323,7 +323,7 @@
     (when current-group
       (add-group current-object current-group))
     (when current-object
-      (push (finalize current-object) all-objects))
+      (push current-object all-objects))
     (make-instance 'obj-file :objects all-objects :materials (alexandria:flatten materials))))
 
 (defun read-obj-from-file (file-name)
