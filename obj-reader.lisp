@@ -87,7 +87,7 @@
          (error 'invalid-obj-index :index idx))))
 
 (defun slash-p (char)
- (char= #\/ char))
+  (char= #\/ char))
 
 (defun read-obj-line (object operands)
   (when operands
@@ -108,20 +108,20 @@
                   (= 0 (length (cadr first-index))))
              (setf idx-format :vertex)))
       (loop
-         :for i = 0 :then (+ i len-parts)
-         :for oper :in operands
-         :for parts = (str:split "/" oper :omit-nulls nil)
-         :for len-parts = (length parts)
-         :do
+        :for i = 0 :then (+ i len-parts)
+        :for oper :in operands
+        :for parts = (str:split "/" oper :omit-nulls nil)
+        :for len-parts = (length parts)
+        :do
            (cond ((/= len-parts expected-indices)
                   (error 'invalid-line-index :index oper))
 
                  ((or (= 1 len-parts)
                       (= 2 len-parts))
                   (loop
-                     :for offset :from 0
-                     :for idx :in parts
-                     :do (setf (aref indices (+ offset i))
+                    :for offset :from 0
+                    :for idx :in parts
+                    :do (setf (aref indices (+ offset i))
                               (map-index object 'vertices (the fixnum (read-from-string idx))))))
                  (t
                   (error 'invalid-line-index :index oper))))
@@ -160,22 +160,22 @@
            (indices (make-array (* (length operands) stride)
                                 :element-type 'fixnum)))
       (loop
-         :for i = 0 :then (+ i len-parts)
-         :for oper :in operands
-         :for parts = (str:split "/" oper :omit-nulls t)
-         :for len-parts = (length parts)
-         do
+        :for i = 0 :then (+ i len-parts)
+        :for oper :in operands
+        :for parts = (str:split "/" oper :omit-nulls t)
+        :for len-parts = (length parts)
+        do
            (cond ((/= len-parts stride)
                   (error 'invalid-face-index :index oper
-                         :stride stride
-                         :part-count len-parts))
+                                             :stride stride
+                                             :part-count len-parts))
                  ((or (= 1 len-parts)
                       (= 2 len-parts)
                       (= 3 len-parts))
                   (loop
-                     :for offset :from 0
-                     :for idx :in parts
-                     :do (setf (aref indices (+ offset i))
+                    :for offset :from 0
+                    :for idx :in parts
+                    :do (setf (aref indices (+ offset i))
                               (map-index object 'vertices (the fixnum (read-from-string idx))))))
                  ;; (t
                  ;;  (error 'invalid-line-index :index oper))
@@ -209,10 +209,10 @@
                                    :adjustable t
                                    :fill-pointer 0))
    (groups :initform (make-array 0
-                                   :element-type 'obj-group
-                                   :initial-contents '()
-                                   :adjustable t
-                                   :fill-pointer 0)))
+                                 :element-type 'obj-group
+                                 :initial-contents '()
+                                 :adjustable t
+                                 :fill-pointer 0)))
   (:documentation "A WaveFront OBJ file."))
 
 (defun add-group (obj group)
@@ -221,10 +221,10 @@
 
 (defun add-data (obj operator operands)
   (let ((slot-name (assoc-value '(("v" . vertices)
-                                   ("vn" . normals)
-                                   ("vt" . tex-coords)
-                                   ("vp" . v-params))
-                                 operator :test #'string=)))
+                                  ("vn" . normals)
+                                  ("vt" . tex-coords)
+                                  ("vp" . v-params))
+                                operator :test #'string=)))
     (dolist (vp operands)
       (vector-push-extend
        (coerce (read-from-string vp) 'single-float)
@@ -250,9 +250,9 @@
         (current-group nil)
         (current-object nil))
     (loop
-       :for line = (read-line ins nil)
-       :while line
-       :do
+      :for line = (read-line ins nil)
+      :while line
+      :do
          (let* ((parts (cl-ppcre:split "\\s" line))
                 (operator (car parts))
                 (operands (cdr parts)))
