@@ -17,7 +17,7 @@
 (in-package :obj-reader)
 
 (defclass obj-geometry ()
-  ((idx-format :initarg :idx-format)
+  ((stride :initarg :stride)
    (indices :initarg :indices
             :initform (make-array 0
                                   :initial-contents '()
@@ -71,7 +71,7 @@
   (:documentation "Objects and materials from a Wavefront OBJ file."))
 
 (defun add-point (object group operands)
-  (dolist (idx operands)
+  (dolist (idx (str:words operands))
     ;; Points are indexed by single integers
     (with-slots (points) group
       (vector-push-extend
@@ -89,43 +89,43 @@
 (defun slash-p (char)
   (char= #\/ char))
 
-(defun read-obj-line (object operands)
-  (when operands
-    (let* ((first-index (str:split "/" (car operands) :omit-nulls nil))
-           (index-len (length first-index))
-           (expected-indices (length first-index))
-           (indices (make-array (* (length operands) (length first-index))
-                                :element-type 'fixnum))
-           (idx-format nil))
-      (cond ((= 1 index-len)
-             (setf idx-format :vertex))
-            ((and (= 2 index-len)
-                  (cadr first-index)
-                  (> 0 (length (cadr first-index))))
-             (setf idx-format :vertex-texture))
-            ((and (= 2 index-len)
-                  (cadr first-index)
-                  (= 0 (length (cadr first-index))))
-             (setf idx-format :vertex)))
-      (loop
-        :for i = 0 :then (+ i len-parts)
-        :for oper :in operands
-        :for parts = (str:split "/" oper :omit-nulls nil)
-        :for len-parts = (length parts)
-        :do
-           (cond ((/= len-parts expected-indices)
-                  (error 'invalid-line-index :index oper))
+(defun read-obj-line (object operand-string)
+  (let* ((operands (str:words operand-string))
+         (first-index (str:split "/" (car operands) :omit-nulls nil))
+         (index-len (length first-index))
+         (expected-indices (length first-index))
+         (indices (make-array (* (length operands) (length first-index))
+                              :element-type 'fixnum))
+         (idx-format nil))
+    (cond ((= 1 index-len)
+           (setf idx-format :vertex))
+          ((and (= 2 index-len)
+                (cadr first-index)
+                (> 0 (length (cadr first-index))))
+           (setf idx-format :vertex-texture))
+          ((and (= 2 index-len)
+                (cadr first-index)
+                (= 0 (length (cadr first-index))))
+           (setf idx-format :vertex)))
+    (loop
+      :for i = 0 :then (+ i len-parts)
+      :for oper :in operands
+      :for parts = (str:split "/" oper :omit-nulls nil)
+      :for len-parts = (length parts)
+      :do
+         (cond ((/= len-parts expected-indices)
+                (error 'invalid-line-index :index oper))
 
-                 ((or (= 1 len-parts)
-                      (= 2 len-parts))
-                  (loop
-                    :for offset :from 0
-                    :for idx :in parts
-                    :do (setf (aref indices (+ offset i))
-                              (map-index object 'vertices (the fixnum (read-from-string idx))))))
-                 (t
-                  (error 'invalid-line-index :index oper))))
-      (make-instance 'obj-line :idx-format idx-format :indices indices))))
+               ((or (= 1 len-parts)
+                    (= 2 len-parts))
+                (loop
+                  :for offset :from 0
+                  :for idx :in parts
+                  :do (setf (aref indices (+ offset i))
+                            (map-index object 'vertices (the fixnum (read-from-string idx))))))
+               (t
+                (error 'invalid-line-index :index oper))))
+    (make-instance 'obj-line :idx-format idx-format :indices indices)))
 
 (defun add-line (object group operands)
   (with-slots (lines) group
@@ -152,35 +152,35 @@
                  (:vertex . 1))
                format))
 
-(defun read-obj-face (object operands)
-  (when operands
-    (let* ((first-index (str:split "/" (car operands) :omit-nulls nil))
-           (idx-format (decide-format first-index))
-           (stride (format-stride idx-format))
-           (indices (make-array (* (length operands) stride)
-                                :element-type 'fixnum)))
-      (loop
-        :for i = 0 :then (+ i len-parts)
-        :for oper :in operands
-        :for parts = (str:split "/" oper :omit-nulls t)
-        :for len-parts = (length parts)
-        do
-           (cond ((/= len-parts stride)
-                  (error 'invalid-face-index :index oper
-                                             :stride stride
-                                             :part-count len-parts))
-                 ((or (= 1 len-parts)
-                      (= 2 len-parts)
-                      (= 3 len-parts))
-                  (loop
-                    :for offset :from 0
-                    :for idx :in parts
-                    :do (setf (aref indices (+ offset i))
-                              (map-index object 'vertices (the fixnum (read-from-string idx))))))
-                 ;; (t
-                 ;;  (error 'invalid-line-index :index oper))
-                 ))
-      (make-instance 'obj-face :idx-format idx-format :indices indices))))
+(defun read-obj-face (object operand-string)
+  (let* ((operands (str:words operand-string))
+         (first-index (str:split "/" (car operands) :omit-nulls nil))
+         (idx-format (decide-format first-index))
+         (stride (format-stride idx-format))
+         (indices (make-array (* (length operands) stride)
+                              :element-type 'fixnum)))
+    (loop
+      :for i = 0 :then (+ i len-parts)
+      :for oper :in operands
+      :for parts = (str:split "/" oper :omit-nulls t)
+      :for len-parts = (length parts)
+      do
+         (cond ((/= len-parts stride)
+                (error 'invalid-face-index :index oper
+                                           :stride stride
+                                           :part-count len-parts))
+               ((or (= 1 len-parts)
+                    (= 2 len-parts)
+                    (= 3 len-parts))
+                (loop
+                  :for offset :from 0
+                  :for idx :in parts
+                  :do (setf (aref indices (+ offset i))
+                            (map-index object 'vertices (the fixnum (read-from-string idx))))))
+               ;; (t
+               ;;  (error 'invalid-line-index :index oper))
+               ))
+    (make-instance 'obj-face :stride stride :indices indices)))
 
 (defun add-face (object group operands)
   (with-slots (faces) group
@@ -225,7 +225,7 @@
                                   ("vt" . tex-coords)
                                   ("vp" . v-params))
                                 operator :test #'string=)))
-    (dolist (vp operands)
+    (dolist (vp (str:words operands))
       (vector-push-extend
        (coerce (read-from-string vp) 'single-float)
        (slot-value obj slot-name)))))
@@ -251,45 +251,38 @@
         (current-object nil))
     (loop
       :for line = (read-line ins nil)
+      :for no-comment = (str:trim (subseq line 0 (search "#" line)))
+      :for (operator operands) = (str:words no-comment :limit 2)
       :while line
+      :when (> (length line) 0)
       :do
-         (let* ((parts (cl-ppcre:split "\\s" line))
-                (operator (car parts))
-                (operands (cdr parts)))
-           (cond
-             ;; Comment
-             ((char= #\# (aref operator 0))
-              t)
+         (cond
+           ((string= "mtllib" operator)
+            (let ((mats (read-mtl-from-file operands)))
+              (loop :for material :in mats :do
+                (with-slots (material-name) material
+                  (setf (gethash material-name materials) material)))))
 
-             ((string= "mtllib" operator)
-              (let ((mats (read-mtl-from-file (format nil "~{~a~^ ~}" operands))))
-                (loop :for material :in mats :do
-                  (with-slots (material-name) material
-                    (setf (gethash material-name materials) material)))))
+           ;; object name - operands are words of the name
+           ((string= "o" operator)
+            (when current-object
+              (push current-object all-objects))
+            (setf current-object
+                  (make-instance 'obj-object :object-name operands)))
 
-             ;; object name - operands are words of the name
-             ((string= "o" operator)
-              (when current-object
-                (push current-object all-objects))
-              (setf current-object
-                    (make-instance 'obj-object
-                                   :object-name (format nil "~{~a~^ ~}" operands))))
-
-             ;; Group - operands are group names
              ((string= "g" operator)
               (when current-group
                 (add-group current-object current-group))
               (setf current-group
-                    (make-instance 'obj-group
-                                   :group-name (format nil "~{~a~^ ~}" operands))))
+                    (make-instance 'obj-group :group-name operands)))
 
              ((string= "s" operator)
               (with-slots (smoothing-group) current-group
-                (setf smoothing-group (read-from-string (car operands)))))
+                (setf smoothing-group (read-from-string operands))))
 
              ((string= "usemtl" operator)
               (with-slots (material) current-group
-                (setf material (format nil "~{~a~^ ~}" operands))))
+                (setf material operands)))
 
              ;; Vertex - operands are x y z [w]
              ;; Normal - operands are  i j k
@@ -319,7 +312,7 @@
               (add-face current-object current-group operands))
 
              (t
-              (format t "Unhandled operator ~a~%" operator)))))
+              (format t "Unhandled operator ~s~%" operator))))
     (when current-group
       (add-group current-object current-group))
     (when current-object
