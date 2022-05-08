@@ -17,7 +17,7 @@
 (in-package :obj-reader)
 
 (defclass obj-geometry ()
-  ((stride :initarg :stride)
+  ((idx-format :initarg :idx-format)
    (indices :initarg :indices
             :initform (make-array 0
                                   :initial-contents '()
@@ -180,7 +180,7 @@
                ;; (t
                ;;  (error 'invalid-line-index :index oper))
                ))
-    (make-instance 'obj-face :stride stride :indices indices)))
+    (make-instance 'obj-face :idx-format idx-format :indices indices)))
 
 (defun add-face (object group operands)
   (with-slots (faces) group
