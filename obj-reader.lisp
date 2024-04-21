@@ -16,175 +16,12 @@
 
 (in-package :obj-reader)
 
-(defclass obj-geometry ()
-  ((idx-format :initarg :idx-format)
-   (indices :initarg :indices
-            :initform (make-array 0
-                                  :initial-contents '()
-                                  :element-type 'fixnum
-                                  :adjustable t
-                                  :fill-pointer 0)))
-  (:documentation "A Wavefront OBJ face."))
 
-;; Face format is one of:
-;; :vertex - 1 or 1/ or 1//
-;; :vertex-normal - 1//1
-;; :vertex-tex - 1/1 or 1/1/
-;; :vertex-tex-normal - 1/1/1
-(defclass obj-face (obj-geometry)
-  ()
-  (:documentation "A Wavefront OBJ face."))
-
-;; Line format is:
-;; :vertex - 1 or 1/
-;; :vertex-tex - 1/1
-(defclass obj-line (obj-geometry)
-  ()
-  (:documentation "A Wavefront OBJ line."))
-
-
-(defclass obj-group ()
-  ((group-name :initarg :group-name :type (or null string))
-   (smoothing-group :initform nil :type (or null fixnum))
-   (material :initform nil :type (or null string))
-   (faces :initform (make-array 0
-                                :element-type 'obj-face
-                                :initial-contents '()
-                                :adjustable t
-                                :fill-pointer 0))
-   (lines :initform (make-array 0
-                                :initial-contents '()
-                                :element-type 'obj-line
-                                :adjustable t
-                                :fill-pointer 0))
-   (points :initform (make-array 0
-                                 :element-type 'fixnum
-                                 :initial-contents '()
-                                 :adjustable t
-                                 :fill-pointer 0)))
-
-  (:documentation "An object in a WaveFront OBJ file."))
 
 (defclass obj-file ()
   ((objects :initarg :objects)
    (materials :initarg :materials))
   (:documentation "Objects and materials from a Wavefront OBJ file."))
-
-(defun add-point (object group operands)
-  (dolist (idx (str:words operands))
-    ;; Points are indexed by single integers
-    (with-slots (points) group
-      (vector-push-extend
-       (map-index object 'vertices (the fixnum (read-from-string idx)))
-       points))))
-
-(defun map-index (file type idx)
-  (cond ((< 0 idx)
-         (1- idx))
-        ((> 0 idx)
-         (+ (length (slot-value file type)) idx))
-        (t
-         (error 'invalid-obj-index :index idx))))
-
-(defun slash-p (char)
-  (char= #\/ char))
-
-(defun read-obj-line (object operand-string)
-  (let* ((operands (str:words operand-string))
-         (first-index (str:split "/" (car operands) :omit-nulls nil))
-         (index-len (length first-index))
-         (expected-indices (length first-index))
-         (indices (make-array (* (length operands) (length first-index))
-                              :element-type 'fixnum))
-         (idx-format nil))
-    (cond ((= 1 index-len)
-           (setf idx-format :vertex))
-          ((and (= 2 index-len)
-                (cadr first-index)
-                (> 0 (length (cadr first-index))))
-           (setf idx-format :vertex-texture))
-          ((and (= 2 index-len)
-                (cadr first-index)
-                (= 0 (length (cadr first-index))))
-           (setf idx-format :vertex)))
-    (loop
-      :for i = 0 :then (+ i len-parts)
-      :for oper :in operands
-      :for parts = (str:split "/" oper :omit-nulls nil)
-      :for len-parts = (length parts)
-      :do
-         (cond ((/= len-parts expected-indices)
-                (error 'invalid-line-index :index oper))
-
-               ((or (= 1 len-parts)
-                    (= 2 len-parts))
-                (loop
-                  :for offset :from 0
-                  :for idx :in parts
-                  :do (setf (aref indices (+ offset i))
-                            (map-index object 'vertices (the fixnum (read-from-string idx))))))
-               (t
-                (error 'invalid-line-index :index oper))))
-    (make-instance 'obj-line :idx-format idx-format :indices indices)))
-
-(defun add-line (object group operands)
-  (with-slots (lines) group
-    (vector-push-extend (read-obj-line object operands) lines)))
-
-
-(defun decide-format (first-entry)
-  (let ((has-vert (not (string= "" (car first-entry))))
-        (has-text (not (string= "" (cadr first-entry))))
-        (has-norm (not (string= "" (caddr first-entry)))))
-    (cond ((and has-vert has-text has-norm)
-           :vertex-texture-normal)
-          ((and has-vert has-text)
-           :vertex-texture)
-          ((and has-vert has-norm)
-           :vertex-normal)
-          ((and has-vert)
-           :vertex))))
-
-(defun format-stride (format)
-  (assoc-value '((:vertex-texture-normal . 3)
-                 (:vertex-texture . 2)
-                 (:vertex-normal . 2)
-                 (:vertex . 1))
-               format))
-
-(defun read-obj-face (object operand-string)
-  (let* ((operands (str:words operand-string))
-         (first-index (str:split "/" (car operands) :omit-nulls nil))
-         (idx-format (decide-format first-index))
-         (stride (format-stride idx-format))
-         (indices (make-array (* (length operands) stride)
-                              :element-type 'fixnum)))
-    (loop
-      :for i = 0 :then (+ i len-parts)
-      :for oper :in operands
-      :for parts = (str:split "/" oper :omit-nulls t)
-      :for len-parts = (length parts)
-      do
-         (cond ((/= len-parts stride)
-                (error 'invalid-face-index :index oper
-                                           :stride stride
-                                           :part-count len-parts))
-               ((or (= 1 len-parts)
-                    (= 2 len-parts)
-                    (= 3 len-parts))
-                (loop
-                  :for offset :from 0
-                  :for idx :in parts
-                  :do (setf (aref indices (+ offset i))
-                            (map-index object 'vertices (the fixnum (read-from-string idx))))))
-               ;; (t
-               ;;  (error 'invalid-line-index :index oper))
-               ))
-    (make-instance 'obj-face :idx-format idx-format :indices indices)))
-
-(defun add-face (object group operands)
-  (with-slots (faces) group
-    (vector-push-extend (read-obj-face object operands) faces)))
 
 (defclass obj-object ()
   ((object-name :initarg :object-name :type (or null string))
@@ -213,13 +50,259 @@
                                  :initial-contents '()
                                  :adjustable t
                                  :fill-pointer 0)))
-  (:documentation "A WaveFront OBJ file."))
+  (:documentation "A collection of geometry groups and vertex data (including vertices, normals, and texture parameters) that makes up an OBJ file.
+Geometric groups collections of faces, lines, and points that index into the vertex data."))
+
+(defclass obj-group ()
+  ((group-name :initarg :group-name
+               :type (or null string))
+   (smoothing-group :initform nil
+                    :type (or null fixnum))
+   (material :initform nil
+             :type (or null string))
+   (faces :initform (make-array 0
+                                :element-type 'obj-face
+                                :initial-contents '()
+                                :adjustable t
+                                :fill-pointer 0))
+   (lines :initform (make-array 0
+                                :initial-contents '()
+                                :element-type 'obj-line
+                                :adjustable t
+                                :fill-pointer 0))
+   (points :initform (make-array 0
+                                 :element-type 'fixnum
+                                 :initial-contents '()
+                                 :adjustable t
+                                 :fill-pointer 0)))
+
+  (:documentation "An obj-group is a single geometric entity with a name and material.
+The group is made up of faces, lines, and points whose vertex data indexes into the vertex data of the parent object."))
+
+(defclass obj-geometry ()
+  ((idx-format :initarg :idx-format)
+   (indices :initarg :indices
+            :initform (make-array 0
+                                  :initial-contents '()
+                                  :element-type 'fixnum
+                                  :adjustable t
+                                  :fill-pointer 0)))
+  (:documentation "A Wavefront OBJ face or line.
+idx-format indicates which data is referenced (:vertex, :vertex-normal, :vertex-tex-normal, etc.) and determines the stride,
+and indices contains the indices themselves."))
+
+;; Face format is one of:
+;; :vertex - 1 or 1/ or 1//
+;; :vertex-normal - 1//1
+;; :vertex-tex - 1/1 or 1/1/
+;; :vertex-tex-normal - 1/1/1
+(defclass obj-face (obj-geometry)
+  ()
+  (:documentation "A Wavefront OBJ face."))
+
+;; Line format is:
+;; :vertex - 1 or 1/
+;; :vertex-tex - 1/1
+(defclass obj-line (obj-geometry)
+  ()
+  (:documentation "A Wavefront OBJ line."))
+
+(defun stride (obj-geometry)
+  (format-stride (slot-value obj-geometry 'idx-format)))
+
+(defun map-index (file type idx)
+  "OBJ indices are 1 based, and allow negative values that index from the end of the array.
+map-index converts these index values into positive, 0 based indices."
+  (cond
+    ((< 0 idx)
+     (1- idx))
+    ((> 0 idx)
+     (+ (length (slot-value file type)) idx))
+    (t
+     (error 'invalid-obj-index :index idx))))
+
+(defun add-point (object group operands)
+  "Add a point to the given group."
+  (dolist (idx (str:words operands))
+    ;; Points can only have a single vertex, and are indexed by single integers
+    (with-slots (points) group
+      (vector-push-extend
+       (map-index object 'vertices (the fixnum (read-from-string idx)))
+       points))))
+
+
+(defun read-obj-line (object operand-string)
+  "Convert an input line of text into a new obj-line"
+
+
+  (let* (;; Split "1/1 2/2 3/3" into ("1/1", "2/2", "3/3")
+         (operands (str:words operand-string))
+
+         ;; Split "1/1" into ("1" "1")
+         (first-index (str:split "/" (car operands) :omit-nulls nil))
+
+         ;; Count the elements
+         (index-len (length first-index))
+
+         ;; And that's how many are expected each time
+         (expected-indices index-len)
+
+         ;; Allocate an array of indices with enough room
+         (indices (make-array (* (length operands) (length first-index))
+                              :element-type 'fixnum))
+
+         ;; Decide what data format the line uses
+         (idx-format (cond ((= 1 index-len)
+                            :vertex)
+                           ((and (= 2 index-len)
+                                 (cadr first-index)
+                                 (> 0 (length (cadr first-index))))
+                            :vertex-texture)
+                           ((and (= 2 index-len)
+                                 (cadr first-index)
+                                 (= 0 (length (cadr first-index))))
+                            :vertex))))
+
+    ;; Read the line data into memory
+    (loop
+      :for i = 0 :then (+ i len-parts)
+      :for oper :in operands
+      :for parts = (str:split "/" oper :omit-nulls nil)
+      :for len-parts = (length parts)
+      :when (/= len-parts expected-indices)
+        :do (error 'invalid-line-index :index oper)
+      :when (or (= 1 len-parts)
+                (= 2 len-parts))
+        :do (loop
+              :for offset :from 0
+              :for idx :in parts
+              :do (setf (aref indices (+ offset i))
+                        (map-index object
+                                   'vertices
+                                   (the fixnum (read-from-string idx))))))
+    (make-instance 'obj-line :idx-format idx-format :indices indices)))
+
+(defun add-line (object group operands)
+  "Add a new line to object group."
+  (with-slots (lines) group
+    (vector-push-extend (read-obj-line object operands) lines)))
+
+
+(defun decide-face-format (first-entry)
+  "Determine the face format based on which indices are given."
+  (let ((has-vert (and (car first-entry)
+                       (string/= "" (car first-entry))))
+        (has-text (and (cadr first-entry)
+                       (string/= "" (cadr first-entry))))
+        (has-norm (and (caddr first-entry)
+                       (string/= "" (caddr first-entry))))
+        (has-vdata (and (cadddr first-entry)
+                        (string/= "" (cadddr first-entry)))))
+    
+    (cond ((and has-vert has-text has-norm has-vdata)
+           :vertex-texture-normal-vdata)
+
+          ((and has-vert has-text has-norm)
+           :vertex-texture-normal)
+          
+          ((and has-vert has-text has-vdata)
+           :vertex-texture-vdata)
+
+          ((and has-vert has-norm has-vdata)
+           :vertex-normal-vdata)
+
+          ((and has-vert has-text)
+           :vertex-texture)
+          ((and has-vert has-vdata)
+           :vertex-vdata)
+          ((and has-vert has-norm)
+           :vertex-normal)
+
+          ((and has-vert)
+           :vertex)
+
+          ((and has-text has-norm has-vdata)
+           :texture-normal-vdata)
+
+          ((and has-text has-norm)
+           :texture-normal)
+          ((and has-text has-vdata)
+           :texture-vdata)
+
+          ((and has-text)
+           :texture)
+
+          ((and has-norm has-vdata)
+           :normal-vdata)
+          ((and has-norm)
+           :normal)
+
+          ((and has-vdata)
+           :vdata)
+          (t
+           (error "Invalid index count for a face!")))))
+
+(defun format-stride (format)
+  "Lookup the stride (number of indices) used by a specific data format."
+  (assoc-value '((:vertex-texture-normal . 3)
+                 (:vertex-texture . 2)
+                 (:vertex-normal . 2)
+                 (:vertex . 1))
+               format))
+
+(defun read-obj-face (object operand-string)
+  "Read a new face whose index data refers to object."
+
+  (let* (;; Split "1/1 2/2 3/3" into ("1/1", "2/2", "3/3")
+         (operands (str:words operand-string))
+
+         ;; Split "1/1" into (1 1)
+         (first-index (str:split "/" (car operands) :omit-nulls nil))
+
+         ;; Decide the format
+         (idx-format (decide-face-format first-index))
+         ;; Decide how big each index will be
+         (stride (format-stride idx-format))
+
+         ;; Allocate enough space for them all
+         (indices (make-array (* (length operands) stride)
+                              :element-type 'fixnum)))
+
+    ;; Read the face data into memory
+    (loop
+      :for i = 0 :then (+ i len-parts)
+      :for oper :in operands
+      :for parts = (str:split "/" oper :omit-nulls t)
+      :for len-parts = (length parts)
+      :when (/= len-parts stride)
+        :do
+           (error 'invalid-face-index :index oper
+                                      :stride stride
+                                      :part-count len-parts)
+      :when (or (= 1 len-parts)
+                (= 2 len-parts)
+                (= 3 len-parts))
+        :do
+           (loop
+             :for offset :from 0
+             :for idx :in parts
+             :do (setf (aref indices (+ offset i))
+                       (map-index object 'vertices (the fixnum (read-from-string idx))))))
+    ;; Create the face
+    (make-instance 'obj-face :idx-format idx-format :indices indices)))
+
+(defun add-face (object group operands)
+  "Read a new face from operands and add it to group."
+  (with-slots (faces) group
+    (vector-push-extend (read-obj-face object operands) faces)))
 
 (defun add-group (obj group)
+  "Add a new group to obj."
   (with-slots (groups) obj
     (vector-push-extend group groups)))
 
-(defun add-data (obj operator operands)
+(defun add-vertex-data (obj operator operands)
+  "Add a new vertex, normal, texture coordinate or parameter to obj."
   (let ((slot-name (assoc-value '(("v" . vertices)
                                   ("vn" . normals)
                                   ("vt" . tex-coords)
@@ -240,8 +323,14 @@
 (define-condition invalid-face-index (error)
   ((index :initarg :index :reader index)
    (part-count :initarg :part-count :reader part-count)
-   (stride :initarg :stride :reader stride)))
+   (stride :initarg :stride)))
 
+(defun read-obj-from-file (file-name)
+  "Read Wavefront OBJ data from file-name."
+  ;; Use with-current-directory so .mtl files are found in the correct location.
+  (uiop/filesystem:with-current-directory ((directory-namestring file-name))
+    (with-input-from-file (ins file-name)
+      (read-obj ins))))
 
 (defun read-obj (ins)
   "Read a WaveFront OBJ file into memory."
@@ -249,13 +338,17 @@
         (materials (make-hash-table :test 'equal))
         (current-group nil)
         (current-object nil))
+
     (loop
       :for line = (read-line ins nil)
-      :for no-comment = (str:trim (subseq line 0 (search "#" line)))
-      :for (operator operands) = (str:words no-comment :limit 2)
       :while line
-      :when (> (length line) 0)
-      :do
+
+      :for no-comment = (str:trim (subseq line
+                                          0
+                                          (search "#" line)))
+      :for (operator operands) = (str:words no-comment :limit 2)
+      :when (> (length no-comment) 0)
+        :do
          (cond
            ((string= "mtllib" operator)
             (let ((mats (read-mtl-from-file operands)))
@@ -292,7 +385,7 @@
                   (string= "vn" operator)
                   (string= "vt" operator)
                   (string= "vp" operator))
-              (add-data current-object operator operands))
+              (add-vertex-data current-object operator operands))
 
              ;; Points - operands are vertex indices
              ;; p 1 2 3
@@ -319,7 +412,7 @@
       (push current-object all-objects))
     (make-instance 'obj-file :objects all-objects :materials (alexandria:flatten materials))))
 
-(defun read-obj-from-file (file-name)
-  (uiop/filesystem:with-current-directory ((directory-namestring file-name))
-    (with-input-from-file (ins file-name)
-      (read-obj ins))))
+;; (defun read-obj-from-file (file-name)
+;;   (uiop/filesystem:with-current-directory ((directory-namestring file-name))
+;;     (with-input-from-file (ins file-name)
+;;       (read-obj ins))))

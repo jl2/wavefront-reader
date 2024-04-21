@@ -18,49 +18,67 @@
 
 (defclass obj-material ()
   ((material-name :initarg :material-name :type string)
-   (attributes :initform (make-hash-table :test 'equal))))
+   (attributes :initform (make-hash-table :test 'equal)))
+  (:documentation "A Wavefront Material file.
+A name and hashtable of surface attributes."))
 
 (defun get-attribute (mtl attrib-name)
+  "Get a surface attribute of the material."
   (with-slots (attributes) mtl
     (gethash attrib-name attributes)))
 
 (defun set-attribute (mtl attrib-name attrib-value)
+  "Set a surface attribute of the material."
   (with-slots (attributes) mtl
-    (setf (gethash attrib-name attributes) (if (> (length attrib-value) 1)
-                                               attrib-value
-                                               (car attrib-value)))))
+    (setf (gethash attrib-name attributes)
+          (if (> (length attrib-value) 1)
+              attrib-value
+              (car attrib-value)))))
 
 (defun read-mtl (ins)
   "Read a Wavefront .mtl material file into memory."
   (let ((all-mtls nil)
         (current-mtl nil))
     (loop
-       for line = (read-line ins nil)
-       while line
-       do
-         (let* ((parts (cl-ppcre:split "\\s" line))
-                (operator (car parts))
-                (operands (cdr parts)))
-           (cond
-             ((null operator)
-              t)
-             ;; Comment
-             ((char= #\# (aref operator 0))
-              t)
+      :for line = (read-line ins nil)
+      :while line
+      :for no-comment = (str:trim (subseq line
+                                          0
+                                          (search "#" line)))
+      :for (operator operands) = (str:words no-comment :limit 2)
+;;      :when (not (zerop (length no-comment)))
 
-             ((string= "newmtl" operator)
-              (when current-mtl
-                (push current-mtl all-mtls))
-              (setf current-mtl
-                    (make-instance 'obj-material
-                                   :material-name (format nil "~{~a~^ ~}" operands))))
-             (operator
-              (set-attribute current-mtl operator (mapcar #'read-from-string operands))))))
+      ;; :for parts = (cl-ppcre:split "\\s" line)
+      ;; :for operator = (first parts)
+      ;; :for operands = (rest parts)
+      :when operator
+      :do
+         (cond
+           ((null operator)
+            t)
+
+           ((zerop (length operator))
+            t)
+           ;; Comment
+           ((char= #\# (aref operator 0))
+            t)
+
+           ((string= "newmtl" operator)
+            (when current-mtl
+              (push current-mtl all-mtls))
+            (setf current-mtl
+                  (make-instance 'obj-material
+                                 :material-name (format nil "~{~a~^ ~}" (ensure-list operands)))))
+           (operator
+            (set-attribute current-mtl
+                           operator
+                           (mapcar #'read-from-string (ensure-list operands))))))
 
     (when current-mtl
       (push current-mtl all-mtls))
     all-mtls))
 
 (defun read-mtl-from-file (file-name)
+  "Read a material from the named file."
   (with-input-from-file (ins file-name)
     (read-mtl ins)))

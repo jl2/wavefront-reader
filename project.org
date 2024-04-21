@@ -2,6 +2,11 @@
 ** About
 Read Wavefront OBJ files into memory and convert to OpenGL formats.
 
+** Example
+#+begin_src lisp
+  (ql:quickload :obj-reader)
+  (obj-reader:read-obj-from-file "/home/jeremiah/src/lisp/obj-reader/examples/arrow.obj")
+#+end_src
 ** License
 ISC
 

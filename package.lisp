@@ -16,15 +16,42 @@
 
 (defpackage :obj-reader
   (:use #:cl #:alexandria)
+  (:nicknames #:obj)
   (:export #:read-obj
            #:read-mtl
            #:read-obj-from-file
            #:read-mtl-from-file
+
+           #:obj-file
+
            #:objects
            #:materials
+
+
+           #:obj-object
+
+           #:object-name
            #:vertices
-           #:groups
            #:normals
            #:tex-coords
-           #:object-name
+           #:v-params
+           #:groups
+
+
+           #:obj-group
+           #:group-name
+           #:smoothing-group
+           #:material
+           #:faces
+           #:lines
+           #:points
+
+           #:obj-geometry
+           #:idx-format
+           #:indices
+           #:format-stride
+           #:stride
+           #:obj-face
+           #:obj-line
+           #:format-stride
            ))
