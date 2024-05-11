@@ -65,7 +65,7 @@ A name and hashtable of surface attributes."))
 
            ((string= "newmtl" operator)
             (when current-mtl
-              (push current-mtl all-mtls))
+              (push (cons (slot-value current-mtl 'material-name) current-mtl) all-mtls))
             (setf current-mtl
                   (make-instance 'obj-material
                                  :material-name (format nil "~{~a~^ ~}" (ensure-list operands)))))
