@@ -70,12 +70,15 @@ A name and hashtable of surface attributes."))
                   (make-instance 'obj-material
                                  :material-name (format nil "~{~a~^ ~}" (ensure-list operands)))))
            (operator
+            ;; (format t "~a: ~{~a~^ ~}" operator (str:words operands))
             (set-attribute current-mtl
                            operator
-                           (mapcar #'read-from-string (ensure-list operands))))))
+                           (mapcar #'read-from-string (str:words operands))))))
 
     (when current-mtl
-      (push current-mtl all-mtls))
+      (push
+       (cons (slot-value current-mtl 'material-name) current-mtl)
+       all-mtls))
     all-mtls))
 
 (defun read-mtl-from-file (file-name)

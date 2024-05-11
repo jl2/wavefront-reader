@@ -279,9 +279,8 @@ map-index converts these index values into positive, 0 based indices."
            (error 'invalid-face-index :index oper
                                       :stride stride
                                       :part-count len-parts)
-      :when (or (= 1 len-parts)
-                (= 2 len-parts)
-                (= 3 len-parts))
+      :when (and (<= 1 len-parts)
+                 (>= 4 len-parts))
         :do
            (loop
              :for offset :from 0
@@ -351,10 +350,8 @@ map-index converts these index values into positive, 0 based indices."
         :do
          (cond
            ((string= "mtllib" operator)
-            (let ((mats (read-mtl-from-file operands)))
-              (loop :for material :in mats :do
-                (with-slots (material-name) material
-                  (setf (gethash material-name materials) material)))))
+            (loop :for (material-name . material) :in (read-mtl-from-file operands) :do
+              (setf (gethash material-name materials) material)))
 
            ;; object name - operands are words of the name
            ((string= "o" operator)
@@ -410,7 +407,7 @@ map-index converts these index values into positive, 0 based indices."
       (add-group current-object current-group))
     (when current-object
       (push current-object all-objects))
-    (make-instance 'obj-file :objects all-objects :materials (alexandria:flatten materials))))
+    (make-instance 'obj-file :objects all-objects :materials materials)))
 
 ;; (defun read-obj-from-file (file-name)
 ;;   (uiop/filesystem:with-current-directory ((directory-namestring file-name))

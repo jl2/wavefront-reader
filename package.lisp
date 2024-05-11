@@ -27,9 +27,9 @@
            #:objects
            #:materials
 
-
+           
            #:obj-object
-
+           
            #:object-name
            #:vertices
            #:normals
@@ -37,11 +37,11 @@
            #:v-params
            #:groups
 
-
            #:obj-group
            #:group-name
            #:smoothing-group
            #:material
+           #:attributes
            #:faces
            #:lines
            #:points
