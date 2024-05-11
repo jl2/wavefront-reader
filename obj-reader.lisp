@@ -336,7 +336,7 @@ map-index converts these index values into positive, 0 based indices."
   (let ((all-objects nil)
         (materials (make-hash-table :test 'equal))
         (current-group nil)
-        (current-object nil))
+        (current-object (make-instance 'obj-object :object-name "default")))
 
     (loop
       :for line = (read-line ins nil)
@@ -355,10 +355,13 @@ map-index converts these index values into positive, 0 based indices."
 
            ;; object name - operands are words of the name
            ((string= "o" operator)
-            (when current-object
-              (push current-object all-objects))
-            (setf current-object
-                  (make-instance 'obj-object :object-name operands)))
+            (cond ((and current-object
+                        (zerop (length (slot-value current-object 'vertices))))
+                   (setf (slot-value current-object 'object-name) operands))
+                  (current-object
+                   (push current-object all-objects)
+                   (setf current-object
+                  (make-instance 'obj-object :object-name operands)))))
 
              ((string= "g" operator)
               (when current-group
