@@ -16,7 +16,7 @@
 
 (in-package :obj-reader)
 
-
+(defparameter *obj-real-type* 'single-float)
 
 (defclass obj-file ()
   ((objects :initarg :objects)
@@ -26,22 +26,22 @@
 (defclass obj-object ()
   ((object-name :initarg :object-name :type (or null string))
    (vertices :initform (make-array 0
-                                   :element-type 'single-float
+                                   :element-type *obj-real-type*
                                    :initial-contents '()
                                    :adjustable t
                                    :fill-pointer 0))
    (normals :initform (make-array 0
-                                  :element-type 'single-float
+                                  :element-type *obj-real-type*
                                   :initial-contents '()
                                   :adjustable t
                                   :fill-pointer 0))
    (tex-coords :initform (make-array 0
-                                     :element-type 'single-float
+                                     :element-type *obj-real-type*
                                      :initial-contents '()
                                      :adjustable t
                                      :fill-pointer 0))
    (v-params :initform (make-array 0
-                                   :element-type 'single-float
+                                   :element-type *obj-real-type*
                                    :initial-contents '()
                                    :adjustable t
                                    :fill-pointer 0))
@@ -309,7 +309,7 @@ map-index converts these index values into positive, 0 based indices."
                                 operator :test #'string=)))
     (dolist (vp (str:words operands))
       (vector-push-extend
-       (coerce (read-from-string vp) 'single-float)
+       (coerce (read-from-string vp) *obj-real-type*)
        (slot-value obj slot-name)))))
 
 

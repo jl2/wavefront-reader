@@ -17,7 +17,9 @@
 (defpackage :obj-reader
   (:use #:cl #:alexandria)
   (:nicknames #:obj)
-  (:export #:read-obj
+  (:export #:*obj-real-type*
+
+           #:read-obj
            #:read-mtl
            #:read-obj-from-file
            #:read-mtl-from-file
