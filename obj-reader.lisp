@@ -79,12 +79,18 @@ Geometric groups collections of faces, lines, and points that index into the ver
   (:documentation "An obj-group is a single geometric entity with a name and material.
 The group is made up of faces, lines, and points whose vertex data indexes into the vertex data of the parent object."))
 
+
+(deftype obj-index ()
+  `(and (simple-array fixnum 1)))
+
+
+
 (defclass obj-geometry ()
   ((idx-format :initarg :idx-format)
    (indices :initarg :indices
             :initform (make-array 0
                                   :initial-contents '()
-                                  :element-type 'fixnum
+                                  :element-type 'obj-index
                                   :adjustable t
                                   :fill-pointer 0)))
   (:documentation "A Wavefront OBJ face or line.
@@ -110,14 +116,18 @@ and indices contains the indices themselves."))
 (defun stride (obj-geometry)
   (format-stride (slot-value obj-geometry 'idx-format)))
 
-(defun map-index (file type idx)
+(defun fixup-negative-indices (file type idx)
   "OBJ indices are 1 based, and allow negative values that index from the end of the array.
-map-index converts these index values into positive, 0 based indices."
+fixup-negative-indices converts these index values into positive, 0 based indices."
+  (declare (type fixnum idx)
+           (type obj-object file))
   (cond
     ((< 0 idx)
      (1- idx))
+
     ((> 0 idx)
-     (+ (length (slot-value file type)) idx))
+     (+ (length (slot-value file type))
+        idx))
     (t
      (error 'invalid-obj-index :index idx))))
 
@@ -127,7 +137,7 @@ map-index converts these index values into positive, 0 based indices."
     ;; Points can only have a single vertex, and are indexed by single integers
     (with-slots (points) group
       (vector-push-extend
-       (map-index object 'vertices (the fixnum (read-from-string idx)))
+       (fixup-negative-indices object 'vertices (the fixnum (read-from-string idx)))
        points))))
 
 
@@ -147,10 +157,6 @@ map-index converts these index values into positive, 0 based indices."
          ;; And that's how many are expected each time
          (expected-indices index-len)
 
-         ;; Allocate an array of indices with enough room
-         (indices (make-array (* (length operands) (length first-index))
-                              :element-type 'fixnum))
-
          ;; Decide what data format the line uses
          (idx-format (cond ((= 1 index-len)
                             :vertex)
@@ -161,26 +167,28 @@ map-index converts these index values into positive, 0 based indices."
                            ((and (= 2 index-len)
                                  (cadr first-index)
                                  (= 0 (length (cadr first-index))))
-                            :vertex))))
+                            :vertex)))
+         (indices (loop
+                    :for oper :in operands
+                    :for i :from 0
+                    :for components = (str:split "/" oper :omit-nulls nil)
+                    :for len-components = (length components)
+                    :when (/= len-components expected-indices)
+                      :do (error 'invalid-line-index :index oper)
+                    :collect (make-array len-components
+                                         :element-type 'fixnum
+                                         :initial-contents
+                                         (mapcar (lambda (idx)
+                                                   (fixup-negative-indices object
+                                                                           'vertices
+                                                                           (the fixnum (read-from-string idx))))
+                                                 components)))))
 
-    ;; Read the line data into memory
-    (loop
-      :for i = 0 :then (+ i len-parts)
-      :for oper :in operands
-      :for parts = (str:split "/" oper :omit-nulls nil)
-      :for len-parts = (length parts)
-      :when (/= len-parts expected-indices)
-        :do (error 'invalid-line-index :index oper)
-      :when (or (= 1 len-parts)
-                (= 2 len-parts))
-        :do (loop
-              :for offset :from 0
-              :for idx :in parts
-              :do (setf (aref indices (+ offset i))
-                        (map-index object
-                                   'vertices
-                                   (the fixnum (read-from-string idx))))))
-    (make-instance 'obj-line :idx-format idx-format :indices indices)))
+
+    (make-instance 'obj-line
+                   :idx-format idx-format
+                   :indices (make-array (length operands)
+                                        :initial-contents indices))))
 
 (defun add-line (object group operands)
   "Add a new line to object group."
@@ -198,13 +206,13 @@ map-index converts these index values into positive, 0 based indices."
                        (string/= "" (caddr first-entry))))
         (has-vdata (and (cadddr first-entry)
                         (string/= "" (cadddr first-entry)))))
-    
+
     (cond ((and has-vert has-text has-norm has-vdata)
            :vertex-texture-normal-vdata)
 
           ((and has-vert has-text has-norm)
            :vertex-texture-normal)
-          
+
           ((and has-vert has-text has-vdata)
            :vertex-texture-vdata)
 
@@ -261,34 +269,37 @@ map-index converts these index values into positive, 0 based indices."
 
          ;; Decide the format
          (idx-format (decide-face-format first-index))
-         ;; Decide how big each index will be
+
          (stride (format-stride idx-format))
 
          ;; Allocate enough space for them all
-         (indices (make-array (* (length operands) stride)
-                              :element-type 'fixnum)))
+         (indices (loop
+                    :for oper :in operands
+                    :for components :of-type list = (str:split "/" oper :omit-nulls t)
+                    :for len-components fixnum = (length components)
+                    :when (/= len-components stride)
+                      :do
+                         (error 'invalid-face-index :index oper
+                                                    :stride stride
+                                                    :part-count len-components)
+                    :collect
+                    (make-array len-components
+                                :element-type 'fixnum
+                                :initial-contents
+                                (mapcar (lambda (idx)
+                                          (fixup-negative-indices object 'vertices (the fixnum (read-from-string idx))))
+                                        components)))))
+    (declare (type fixnum stride))
 
     ;; Read the face data into memory
-    (loop
-      :for i = 0 :then (+ i len-parts)
-      :for oper :in operands
-      :for parts = (str:split "/" oper :omit-nulls t)
-      :for len-parts = (length parts)
-      :when (/= len-parts stride)
-        :do
-           (error 'invalid-face-index :index oper
-                                      :stride stride
-                                      :part-count len-parts)
-      :when (and (<= 1 len-parts)
-                 (>= 4 len-parts))
-        :do
-           (loop
-             :for offset :from 0
-             :for idx :in parts
-             :do (setf (aref indices (+ offset i))
-                       (map-index object 'vertices (the fixnum (read-from-string idx))))))
+
     ;; Create the face
-    (make-instance 'obj-face :idx-format idx-format :indices indices)))
+    (make-instance 'obj-face
+                   :idx-format idx-format
+                   :indices (make-array (length operands)
+                                        :element-type 'obj-index
+                                        :initial-contents indices
+                                        ))))
 
 (defun add-face (object group operands)
   "Read a new face from operands and add it to group."
