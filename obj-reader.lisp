@@ -26,19 +26,19 @@
 (defclass obj-object ()
   ((object-name :initarg :object-name :type (or null string))
    (vertices :initform (make-array 0
-                                   :element-type *obj-real-type*
+                                   :element-type 'vec3
                                    :initial-contents '()
                                    :adjustable t
                                    :fill-pointer 0)
              :type (vector *obj-real-type*))
    (normals :initform (make-array 0
-                                  :element-type *obj-real-type*
+                                  :element-type 'vec3
                                   :initial-contents '()
                                   :adjustable t
                                   :fill-pointer 0)
             :type (vector *obj-real-type*))
    (tex-coords :initform (make-array 0
-                                     :element-type *obj-real-type*
+                                     :element-type 'vec2
                                      :initial-contents '()
                                      :adjustable t
                                      :fill-pointer 0)
@@ -340,15 +340,31 @@ fixup-negative-indices converts these index values into positive, 0 based indice
   "Add a new vertex, normal, texture coordinate or parameter to obj."
   (declare (type obj-object obj)
            (type string operator operands))
-  (let ((slot-name (assoc-value '(("v" . vertices)
-                                  ("vn" . normals)
-                                  ("vt" . tex-coords)
-                                  ("vp" . v-params))
-                                operator :test #'string=)))
-    (dolist (vp (str:words operands))
-      (vector-push-extend
-       (coerce (read-from-string vp) *obj-real-type*)
-       (slot-value obj slot-name)))))
+  (cond ((string= "v" operator)
+         (vector-push-extend  (apply #'vec3 (mapcar (lambda (str)
+                                                      (coerce (read-from-string str)
+                                                              *obj-real-type*))
+                                                    (str:words operands)))
+                              (slot-value obj 'vertices)))
+        ((string= "vn" operator)
+         (vector-push-extend  (apply #'vec3 (mapcar (lambda (str)
+                                                      (coerce (read-from-string str)
+                                                              *obj-real-type*))
+                                                    (str:words operands)))
+                              (slot-value obj 'normals)))
+
+        ((string= "vt" operator)
+         (vector-push-extend  (apply #'vec2 (mapcar (lambda (str)
+                                                      (coerce (read-from-string str)
+                                                              *obj-real-type*))
+                                                    (str:words operands)))
+                              (slot-value obj 'tex-coords)))
+        ((string= "vp" operator)
+         (vector-push-extend  (apply #'car (mapcar (lambda (str)
+                                                      (coerce (read-from-string str)
+                                                              *obj-real-type*))
+                                                    (str:words operands)))
+                              (slot-value obj 'v-params)))))
 
 
 (define-condition invalid-obj-index (error)

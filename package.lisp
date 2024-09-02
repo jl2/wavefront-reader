@@ -15,8 +15,12 @@
 ;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 (defpackage :obj-reader
-  (:use #:cl #:alexandria)
+  (:use #:cl
+        #:alexandria
+        #:3d-vectors)
+
   (:nicknames #:obj)
+
   (:export #:*obj-real-type*
 
            #:read-obj

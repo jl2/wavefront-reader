@@ -20,7 +20,10 @@
   :license  "ISC"
   :version "0.0.1"
   :serial t
-  :depends-on (#:j-utils #:alexandria #:str)
+  :depends-on (#:alexandria
+               #:str
+               #:3d-vectors
+               #:3d-matrices)
   :components ((:file "package")
                (:file "mtl-reader")
                (:file "obj-reader")
