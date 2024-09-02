@@ -29,27 +29,32 @@
                                    :element-type *obj-real-type*
                                    :initial-contents '()
                                    :adjustable t
-                                   :fill-pointer 0))
+                                   :fill-pointer 0)
+             :type (vector single-float))
    (normals :initform (make-array 0
                                   :element-type *obj-real-type*
                                   :initial-contents '()
                                   :adjustable t
-                                  :fill-pointer 0))
+                                  :fill-pointer 0)
+            :type (vector single-float))
    (tex-coords :initform (make-array 0
                                      :element-type *obj-real-type*
                                      :initial-contents '()
                                      :adjustable t
-                                     :fill-pointer 0))
+                                     :fill-pointer 0)
+               :type (vector single-float))
    (v-params :initform (make-array 0
                                    :element-type *obj-real-type*
                                    :initial-contents '()
                                    :adjustable t
-                                   :fill-pointer 0))
+                                   :fill-pointer 0)
+             :type (vector single-float))
    (groups :initform (make-array 0
                                  :element-type 'obj-group
                                  :initial-contents '()
                                  :adjustable t
-                                 :fill-pointer 0)))
+                                 :fill-pointer 0)
+           :type (vector obj-group)))
   (:documentation "A collection of geometry groups and vertex data (including vertices, normals, and texture parameters) that makes up an OBJ file.
 Geometric groups collections of faces, lines, and points that index into the vertex data."))
 
@@ -83,8 +88,6 @@ The group is made up of faces, lines, and points whose vertex data indexes into 
 (deftype obj-index ()
   `(and (simple-array fixnum 1)))
 
-
-
 (defclass obj-geometry ()
   ((idx-format :initarg :idx-format)
    (indices :initarg :indices
@@ -113,6 +116,10 @@ and indices contains the indices themselves."))
   ()
   (:documentation "A Wavefront OBJ line."))
 
+(declaim (inline decide-face-format
+                 add-point add-line add-face add-group
+                 stride fixup-negative-indices))
+
 (defun stride (obj-geometry)
   (format-stride (slot-value obj-geometry 'idx-format)))
 
@@ -133,6 +140,9 @@ fixup-negative-indices converts these index values into positive, 0 based indice
 
 (defun add-point (object group operands)
   "Add a point to the given group."
+  (declare (type string operands)
+           (type obj-object object)
+           (type obj-group group))
   (dolist (idx (str:words operands))
     ;; Points can only have a single vertex, and are indexed by single integers
     (with-slots (points) group
@@ -144,6 +154,8 @@ fixup-negative-indices converts these index values into positive, 0 based indice
 (defun read-obj-line (object operand-string)
   "Convert an input line of text into a new obj-line"
 
+  (declare (type obj-object object)
+           (type string operand-string))
 
   (let* (;; Split "1/1 2/2 3/3" into ("1/1", "2/2", "3/3")
          (operands (str:words operand-string))
@@ -169,10 +181,10 @@ fixup-negative-indices converts these index values into positive, 0 based indice
                                  (= 0 (length (cadr first-index))))
                             :vertex)))
          (indices (loop
-                    :for oper :in operands
-                    :for i :from 0
-                    :for components = (str:split "/" oper :omit-nulls nil)
-                    :for len-components = (length components)
+                    :for oper :of-type string :in operands
+                    :for i fixnum :from 0
+                    :for components :of-type list = (str:split "/" oper :omit-nulls nil)
+                    :for len-components fixnum = (length components)
                     :when (/= len-components expected-indices)
                       :do (error 'invalid-line-index :index oper)
                     :collect (make-array len-components
@@ -185,6 +197,7 @@ fixup-negative-indices converts these index values into positive, 0 based indice
                                                  components)))))
 
 
+
     (make-instance 'obj-line
                    :idx-format idx-format
                    :indices (make-array (length operands)
@@ -192,12 +205,17 @@ fixup-negative-indices converts these index values into positive, 0 based indice
 
 (defun add-line (object group operands)
   "Add a new line to object group."
+  (declare (type obj-object object)
+           (type string operands)
+           (type obj-group group))
   (with-slots (lines) group
     (vector-push-extend (read-obj-line object operands) lines)))
 
 
 (defun decide-face-format (first-entry)
   "Determine the face format based on which indices are given."
+  (declare (type list first-entry))
+
   (let ((has-vert (and (car first-entry)
                        (string/= "" (car first-entry))))
         (has-text (and (cadr first-entry)
@@ -260,6 +278,8 @@ fixup-negative-indices converts these index values into positive, 0 based indice
 
 (defun read-obj-face (object operand-string)
   "Read a new face whose index data refers to object."
+  (declare (type obj-object object)
+           (type string operand-string))
 
   (let* (;; Split "1/1 2/2 3/3" into ("1/1", "2/2", "3/3")
          (operands (str:words operand-string))
@@ -274,7 +294,7 @@ fixup-negative-indices converts these index values into positive, 0 based indice
 
          ;; Allocate enough space for them all
          (indices (loop
-                    :for oper :in operands
+                    :for oper :of-type string :in operands
                     :for components :of-type list = (str:split "/" oper :omit-nulls t)
                     :for len-components fixnum = (length components)
                     :when (/= len-components stride)
@@ -298,21 +318,28 @@ fixup-negative-indices converts these index values into positive, 0 based indice
                    :idx-format idx-format
                    :indices (make-array (length operands)
                                         :element-type 'obj-index
-                                        :initial-contents indices
-                                        ))))
+                                        :initial-contents indices))))
 
 (defun add-face (object group operands)
   "Read a new face from operands and add it to group."
+  (declare (type obj-object object)
+           (type string operands)
+           (type obj-group group))
+
   (with-slots (faces) group
     (vector-push-extend (read-obj-face object operands) faces)))
 
 (defun add-group (obj group)
   "Add a new group to obj."
+  (declare (type obj-object obj)
+           (type obj-group group))
   (with-slots (groups) obj
     (vector-push-extend group groups)))
 
 (defun add-vertex-data (obj operator operands)
   "Add a new vertex, normal, texture coordinate or parameter to obj."
+  (declare (type obj-object obj)
+           (type string operator operands))
   (let ((slot-name (assoc-value '(("v" . vertices)
                                   ("vn" . normals)
                                   ("vt" . tex-coords)
