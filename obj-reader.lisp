@@ -30,25 +30,25 @@
                                    :initial-contents '()
                                    :adjustable t
                                    :fill-pointer 0)
-             :type (vector single-float))
+             :type (vector *obj-real-type*))
    (normals :initform (make-array 0
                                   :element-type *obj-real-type*
                                   :initial-contents '()
                                   :adjustable t
                                   :fill-pointer 0)
-            :type (vector single-float))
+            :type (vector *obj-real-type*))
    (tex-coords :initform (make-array 0
                                      :element-type *obj-real-type*
                                      :initial-contents '()
                                      :adjustable t
                                      :fill-pointer 0)
-               :type (vector single-float))
+               :type (vector *obj-real-type*))
    (v-params :initform (make-array 0
                                    :element-type *obj-real-type*
                                    :initial-contents '()
                                    :adjustable t
                                    :fill-pointer 0)
-             :type (vector single-float))
+             :type (vector *obj-real-type*))
    (groups :initform (make-array 0
                                  :element-type 'obj-group
                                  :initial-contents '()

@@ -17,12 +17,12 @@
 (in-package :obj-reader)
 
 (defclass bounding-box ()
-  ((min-x :type single-float :initform most-positive-single-float)
-   (max-x :type single-float :initform most-negative-single-float)
-   (min-y :type single-float :initform most-positive-single-float)
-   (max-y :type single-float :initform most-negative-single-float)
-   (min-z :type single-float :initform most-positive-single-float)
-   (max-z :type single-float :initform most-negative-single-float)))
+  ((min-x :type *obj-real-type* :initform most-positive-single-float)
+   (max-x :type *obj-real-type* :initform most-negative-single-float)
+   (min-y :type *obj-real-type* :initform most-positive-single-float)
+   (max-y :type *obj-real-type* :initform most-negative-single-float)
+   (min-z :type *obj-real-type* :initform most-positive-single-float)
+   (max-z :type *obj-real-type* :initform most-negative-single-float)))
 
 (defun bounding-box (obj)
   (declare (type obj-file obj)
