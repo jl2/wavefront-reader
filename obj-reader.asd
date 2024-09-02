@@ -23,5 +23,6 @@
   :depends-on (#:j-utils #:alexandria #:str)
   :components ((:file "package")
                (:file "mtl-reader")
-               (:file "obj-reader"))
+               (:file "obj-reader")
+               (:file "utilities"))
   :in-order-to ((test-op (test-op obj-reader.test))))

@@ -56,4 +56,11 @@
            #:obj-face
            #:obj-line
            #:format-stride
+           #:bounding-box
+           #:min-x
+           #:min-y
+           #:min-z
+           #:max-x
+           #:max-y
+           #:max-z
            ))
