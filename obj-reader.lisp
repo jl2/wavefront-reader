@@ -30,31 +30,36 @@
                                    :initial-contents '()
                                    :adjustable t
                                    :fill-pointer 0)
-             :type (vector *obj-real-type*))
+             ;;:type (vector *obj-real-type*)
+             )
    (normals :initform (make-array 0
                                   :element-type 'vec3
                                   :initial-contents '()
                                   :adjustable t
                                   :fill-pointer 0)
-            :type (vector *obj-real-type*))
+            ;;:type (vector *obj-real-type*)
+            )
    (tex-coords :initform (make-array 0
                                      :element-type 'vec2
                                      :initial-contents '()
                                      :adjustable t
                                      :fill-pointer 0)
-               :type (vector *obj-real-type*))
+               ;;:type (vector *obj-real-type*)
+               )
    (v-params :initform (make-array 0
                                    :element-type *obj-real-type*
                                    :initial-contents '()
                                    :adjustable t
                                    :fill-pointer 0)
-             :type (vector *obj-real-type*))
+             ;;:type (vector *obj-real-type*)
+             )
    (groups :initform (make-array 0
                                  :element-type 'obj-group
                                  :initial-contents '()
                                  :adjustable t
                                  :fill-pointer 0)
-           :type (vector obj-group)))
+           ;;:type (vector obj-group)
+           ))
   (:documentation "A collection of geometry groups and vertex data (including vertices, normals, and texture parameters) that makes up an OBJ file.
 Geometric groups collections of faces, lines, and points that index into the vertex data."))
 
