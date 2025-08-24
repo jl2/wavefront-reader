@@ -16,12 +16,6 @@
 
 (in-package :obj-reader)
 
-(defclass obj-material ()
-  ((material-name :initarg :material-name :type string)
-   (attributes :initform (make-hash-table :test 'equal)))
-  (:documentation "A Wavefront Material file.
-A name and hashtable of surface attributes."))
-
 (defun get-attribute (mtl attrib-name)
   "Get a surface attribute of the material."
   (with-slots (attributes) mtl
@@ -46,34 +40,34 @@ A name and hashtable of surface attributes."))
                                           0
                                           (search "#" line)))
       :for (operator operands) = (str:words no-comment :limit 2)
-;;      :when (not (zerop (length no-comment)))
+      ;;      :when (not (zerop (length no-comment)))
 
       ;; :for parts = (cl-ppcre:split "\\s" line)
       ;; :for operator = (first parts)
       ;; :for operands = (rest parts)
       :when operator
-      :do
-         (cond
-           ((null operator)
-            t)
+        :do
+           (cond
+             ((null operator)
+              t)
 
-           ((zerop (length operator))
-            t)
-           ;; Comment
-           ((char= #\# (aref operator 0))
-            t)
+             ((zerop (length operator))
+              t)
+             ;; Comment
+             ((char= #\# (aref operator 0))
+              t)
 
-           ((string= "newmtl" operator)
-            (when current-mtl
-              (push (cons (slot-value current-mtl 'material-name) current-mtl) all-mtls))
-            (setf current-mtl
-                  (make-instance 'obj-material
-                                 :material-name (format nil "~{~a~^ ~}" (ensure-list operands)))))
-           (operator
-            ;; (format t "~a: ~{~a~^ ~}" operator (str:words operands))
-            (set-attribute current-mtl
-                           operator
-                           (mapcar #'read-from-string (str:words operands))))))
+             ((string= "newmtl" operator)
+              (when current-mtl
+                (push (cons (slot-value current-mtl 'material-name) current-mtl) all-mtls))
+              (setf current-mtl
+                    (make-instance 'obj-material
+                                   :material-name (format nil "~{~a~^ ~}" (ensure-list operands)))))
+             (operator
+              ;; (format t "~a: ~{~a~^ ~}" operator (str:words operands))
+              (set-attribute current-mtl
+                             operator
+                             (mapcar #'read-from-string (str:words operands))))))
 
     (when current-mtl
       (push

@@ -46,8 +46,14 @@
            #:obj-group
            #:group-name
            #:smoothing-group
+
            #:material
            #:attributes
+           #:name
+           #:get-attribute
+           #:add-attribute
+           #:create-default-material
+           #:create-empty-material
            #:faces
            #:lines
            #:points
@@ -67,4 +73,20 @@
            #:max-x
            #:max-y
            #:max-z
+
+           #:with-each-object
+           #:with-each-group
+           #:with-each-face
+           #:with-each-line
+           #:with-each-point
+           #:triangle
+           #:points
+           #:normals
+           #:tex-coords
+           #:p-coords
+           #:material
+           
+           #:triangulate
+           #:collect-triangles
+           #:sort-tris
            ))
