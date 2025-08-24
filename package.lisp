@@ -29,7 +29,8 @@
            #:read-mtl-from-file
 
            #:obj-file
-
+           #:path
+           
            #:objects
            #:materials
 
@@ -79,14 +80,18 @@
            #:with-each-face
            #:with-each-line
            #:with-each-point
-           #:triangle
+           #:geometry
            #:points
            #:normals
            #:tex-coords
            #:p-coords
            #:material
-           
-           #:triangulate
-           #:collect-triangles
-           #:sort-tris
+           #:has-vertices
+           #:has-normals
+           #:has-tex-coords
+           #:has-vdata
+           #:has-material
+           #:map-geometry
+           #:collect-geometry
+           #:sort-geometry
            ))

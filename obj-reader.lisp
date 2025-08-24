@@ -109,7 +109,11 @@ Geometric groups collections of faces, lines, and points that index into the ver
             :accessor objects)
    (materials :initarg :materials
               :type hashtable
-              :accessor materials))
+              :accessor materials)
+   (path :initarg :path
+         :type pathname
+         :accessor path))
+
   (:documentation "Objects and materials from a Wavefront OBJ file."))
 
 
@@ -526,9 +530,9 @@ fixup-negative-indices converts these index values into positive, 0 based indice
   ;; Use with-current-directory so .mtl files are found in the correct location.
   (uiop/filesystem:with-current-directory ((directory-namestring file-name))
     (with-input-from-file (ins file-name)
-      (read-obj ins))))
+      (read-obj ins file-name))))
 
-(defun read-obj (ins)
+(defun read-obj (ins &optional (path (pathname "object.obj")))
   "Read a WaveFront OBJ file into memory."
   (let ((all-objects nil)
         (materials (make-hash-table :test 'equal))
@@ -627,7 +631,10 @@ fixup-negative-indices converts these index values into positive, 0 based indice
         (push current-object all-objects))
       (when (zerop (hash-table-count materials))
         (setf (gethash "default" materials) (default-material)))
-      (make-instance 'obj-file :objects all-objects :materials materials))))
+      (make-instance 'obj-file
+                     :path path
+                     :objects all-objects
+                     :materials materials))))
 
 ;; (defun read-obj-from-file (file-name)
 ;;   (uiop/filesystem:with-current-directory ((directory-namestring file-name))

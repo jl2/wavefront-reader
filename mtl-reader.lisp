@@ -25,9 +25,14 @@
   "Set a surface attribute of the material."
   (with-slots (attributes) mtl
     (setf (gethash attrib-name attributes)
-          (if (> (length attrib-value) 1)
-              attrib-value
-              (car attrib-value)))))
+          (cond ((= 1 (length attrib-value))
+                 (car attrib-value))
+                ((= 2 (length attrib-value))
+                 (apply #'vec2 attrib-value))
+                ((= 3 (length attrib-value))
+                 (apply #'vec3 attrib-value))
+                ((= 4 (length attrib-value))
+                 (apply #'vec4 attrib-value))))))
 
 (defun read-mtl (ins)
   "Read a Wavefront .mtl material file into memory."

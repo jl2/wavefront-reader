@@ -50,7 +50,7 @@
     bb))
 
 
-(defclass triangle ()
+(defclass geometry ()
 
   ((vertices :initarg :vertices
           :accessor vertices
@@ -61,14 +61,32 @@
    (tex-coords :initarg :tex-coords
                :accessor tex-coords
                :type (vector vec2 3))
-   (p-coords :initarg :p-coords
-             :accessor p-coords
+   (vdata :initarg :vdata
+             :accessor vdata
              :type (vector double-float 3))
    (material :initarg :material
              :accessor material
              :type obj-material)))
 
-(defun triangulate (obj-file handler)
+(defun has-vertices (triangle)
+  (and (slot-boundp triangle 'vertices)
+       (not (zerop (length (slot-value triangle 'vertices))))))
+
+(defun has-normals (triangle)
+  (and (slot-boundp triangle 'normals)
+       (not (zerop (length (slot-value triangle 'normals))))))
+
+(defun has-tex-coords (triangle)
+  (and (slot-boundp triangle 'tex-coords)
+       (not (zerop (length (slot-value triangle 'tex-coords))))))
+(defun has-vdata (triangle)
+  (and (slot-boundp triangle 'vdata)
+       (not (zerop (length (slot-value triangle 'vdata))))))
+(defun has-material (triangle)
+  (slot-boundp triangle 'material))
+
+
+(defun map-geometry (obj-file handler)
   "Triangulate obj-file and call handler for each triangle."
   (with-each-object (obj obj-file)
     (with-slots (vertices normals tex-coords v-params) obj
@@ -76,14 +94,14 @@
         (let ((the-material (if (material group)
                                 (get-material (material group) obj-file)
                                 (get-material "default" obj-file)))
-               )
+              )
 
           (with-each-face (face group)
             (let* ((idx-format (idx-format face))
-                  (vi (vertex-index idx-format))
-                  (ni (normal-index idx-format))
-                  (ti (tex-index idx-format))
-                  (vdi (vdata-index idx-format)))
+                   (vi (vertex-index idx-format))
+                   (ni (normal-index idx-format))
+                   (ti (tex-index idx-format))
+                   (vdi (vdata-index idx-format)))
               (with-slots (indices) face
                 (multiple-value-bind (these-verts these-normals these-texs these-vdatas)
                     (loop :with these-verts = (when vi (make-array (length indices) :initial-element (vec3 0 0 0) :element-type 'vec3))
@@ -102,23 +120,24 @@
                                      (aref normals (aref idx  ni)))
                           :when ti
                             :do
-                                (setf (aref these-texs i)
-                                      (aref tex-coords (aref idx ti)))
+                               (setf (aref these-texs i)
+                                     (aref tex-coords (aref idx ti)))
                           :when vdi
                             :do
-                                (setf (aref these-vdatas i)
-                                      (aref v-params (aref idx vdi)))
+                               (setf (aref these-vdatas i)
+                                     (aref v-params (aref idx vdi)))
                           :finally (return (values these-verts
                                                    these-norms
                                                    these-texs
                                                    these-vdatas)))
 
-                  (funcall handler (make-instance 'triangle
+                  (funcall handler (make-instance 'geometry
                                                   :material the-material
                                                   :vertices these-verts
                                                   :normals these-normals
                                                   :tex-coords these-texs
-                                                  :p-coords these-vdatas)))))))))))
+                                                  :vdata these-vdatas)))))))))))
+
 
 (defun estimate-triangle-count (obj-file)
   (let ((estimate 0))
@@ -126,11 +145,18 @@
       (with-each-group (group obj)
         (incf estimate (length (faces group)))))
     estimate))
+(defun estimate-line-count (obj-file)
+  (let ((estimate 0))
+    (with-each-object (obj obj-file)
+      (with-each-group (group obj)
+        (incf estimate (length (lines group)))))
+    estimate))
 
-(defun collect-triangles (obj-file)
+
+(defun collect-geometry (obj-file)
   "Triangulate obj-file and call handler for each triangle."
   (let ((triangles
-          (make-array (estimate-triangle-count obj-file) :initial-element nil :adjustable t :fill-pointer 0 :element-type '(or null triangle))))
+          (make-array (estimate-triangle-count obj-file) :initial-element nil :adjustable t :fill-pointer 0 :element-type '(or null geometry))))
     (with-each-object (obj obj-file)
       (with-slots (vertices normals tex-coords v-params) obj
         (with-each-group (group obj)
@@ -173,16 +199,16 @@
                                                      these-texs
                                                      these-vdatas)))
 
-                    (vector-push-extend (make-instance 'triangle
+                    (vector-push-extend (make-instance 'geometry
                                                        :material the-material
                                                        :vertices these-verts
                                                        :normals these-normals
                                                        :tex-coords these-texs
-                                                       :p-coords these-vdatas)
+                                                       :vdata these-vdatas)
                                         triangles)))))))))
     triangles))
 
-(defun sort-tris (triangles point &key (predicate #'<))
+(defun sort-geometry (triangles point &key (predicate #'<))
   "Sort triangles by their distance from the specified point."
   (sort triangles predicate
         :key (lambda (val)
