@@ -81,6 +81,7 @@
            #:with-each-line
            #:with-each-point
            #:geometry
+           #:geo-type
            #:points
            #:normals
            #:tex-coords

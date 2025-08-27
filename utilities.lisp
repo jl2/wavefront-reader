@@ -77,7 +77,9 @@
 
 
 (defclass geometry ()
-  ((vertices :initarg :vertices
+  ((geo-type :initarg :geo-type :accessor geo-type
+             :type (or :face :line :points))
+   (vertices :initarg :vertices
              :accessor vertices
              :type (vector vec3))
    (normals :initarg :normals
@@ -165,6 +167,7 @@
 
             (with-each-face (face group)
               (vector-push-extend (make-instance 'geometry
+                                                 :geo-type :face
                                                  :material the-material
                                                  :vertices (get-vertices obj-file face)
                                                  :normals (get-normals obj-file face)
@@ -172,12 +175,14 @@
                                   triangles))
             (with-each-line (line group)
               (vector-push-extend (make-instance 'geometry
+                                                 :geo-type :line
                                                  :material the-material
                                                  :vertices (get-vertices obj-file line)
                                                  :tex-coords (get-tex-coords obj-file line))
                                   triangles))
             (with-each-point (point group)
               (vector-push-extend (make-instance 'geometry
+                                                 :geo-type :points
                                                  :material the-material
                                                  :vertices (get-vertices obj-file point))
                                   triangles))))))
