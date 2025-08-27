@@ -18,11 +18,15 @@
 
 (defclass bounding-box ()
   ((max-corner :type vec3
-               :initform (vec3 most-negative-single-float most-negative-single-float most-negative-single-float)
+               :initform (vec3 most-negative-single-float
+                               most-negative-single-float
+                               most-negative-single-float)
                :initarg :max-corner
                :accessor max-corner)
    (min-corner :type vec3
-               :initform (vec3 most-positive-single-float most-positive-single-float most-positive-single-float)
+               :initform (vec3 most-positive-single-float
+                               most-positive-single-float
+                               most-positive-single-float)
                :initarg :min-corner
                :accessor min-corner)))
 
@@ -42,46 +46,61 @@
   (let ((bb (make-instance 'bounding-box)))
     (with-slots ((vx min-corner) min-y min-z max-x max-y max-z) bb
       (loop
-        :for obj :of-type obj-object :in (slot-value obj 'objects)
+        :for pt :of-type (or vec3 vec4) :across (vertices obj)
         :do
-           (loop
-             :for vert :of-type vec3 :across (vertices obj)
-             :do (expand bb vert))))
+           (expand bb pt)))
     bb))
+
+(defun get-vertex (obj-file idx)
+  (aref (slot-value obj-file 'vertices) idx))
+(defun get-normal (obj-file idx)
+  (aref (slot-value obj-file 'normals) idx))
+(defun get-tex-coord (obj-file idx)
+  (aref (slot-value obj-file 'tex-coords) idx))
+
+
+(defun get-vertices (obj-file face)
+  (map 'vector
+       (curry #'get-vertex obj-file)
+       (slot-value face 'vertices)))
+(defun get-normals (obj-file face)
+  (map 'vector
+       (curry #'get-normal obj-file)
+       (slot-value face 'normals))
+  )
+(defun get-tex-coords (obj-file face)
+  (map 'vector
+       (curry #'get-tex-coord obj-file)
+       (slot-value face 'tex-coords)))
+
+
 
 
 (defclass geometry ()
-
   ((vertices :initarg :vertices
-          :accessor vertices
-          :type (vector vec3 3))
+             :accessor vertices
+             :type (vector vec3))
    (normals :initarg :normals
             :accessor normals
-            :type (vector vec3 3))
+            :type (vector vec3))
    (tex-coords :initarg :tex-coords
                :accessor tex-coords
-               :type (vector vec2 3))
-   (vdata :initarg :vdata
-             :accessor vdata
-             :type (vector double-float 3))
+               :type (vector vec2))
    (material :initarg :material
              :accessor material
              :type obj-material)))
 
 (defun has-vertices (triangle)
   (and (slot-boundp triangle 'vertices)
-       (not (zerop (length (slot-value triangle 'vertices))))))
+       (not (emptyp (slot-value triangle 'vertices)))))
 
 (defun has-normals (triangle)
   (and (slot-boundp triangle 'normals)
-       (not (zerop (length (slot-value triangle 'normals))))))
+       (not (emptyp (slot-value triangle 'normals)))))
 
 (defun has-tex-coords (triangle)
   (and (slot-boundp triangle 'tex-coords)
-       (not (zerop (length (slot-value triangle 'tex-coords))))))
-(defun has-vdata (triangle)
-  (and (slot-boundp triangle 'vdata)
-       (not (zerop (length (slot-value triangle 'vdata))))))
+       (not (emptyp (slot-value triangle 'tex-coords)))))
 (defun has-material (triangle)
   (slot-boundp triangle 'material))
 
@@ -93,50 +112,14 @@
       (with-each-group (group obj)
         (let ((the-material (if (material group)
                                 (get-material (material group) obj-file)
-                                (get-material "default" obj-file)))
-              )
+                                (get-material "default" obj-file))))
 
           (with-each-face (face group)
-            (let* ((idx-format (idx-format face))
-                   (vi (vertex-index idx-format))
-                   (ni (normal-index idx-format))
-                   (ti (tex-index idx-format))
-                   (vdi (vdata-index idx-format)))
-              (with-slots (indices) face
-                (multiple-value-bind (these-verts these-normals these-texs these-vdatas)
-                    (loop :with these-verts = (when vi (make-array (length indices) :initial-element (vec3 0 0 0) :element-type 'vec3))
-                          :with these-norms = (when ni (make-array (length indices) :initial-element (vec3 0 0 0) :element-type 'vec3))
-                          :with these-texs = (when ti (make-array (length indices) :initial-element (vec2 0 0) :element-type 'vec2))
-                          :with these-vdatas = (when vdi (make-array (length indices) :element-type 'single-float))
-                          :for i :from 0
-                          :for idx :across indices
-                          :when vi
-                            :do
-                               (setf  (aref these-verts i)
-                                      (aref vertices (aref idx vi)))
-                          :when ni
-                            :do
-                               (setf (aref these-norms i)
-                                     (aref normals (aref idx  ni)))
-                          :when ti
-                            :do
-                               (setf (aref these-texs i)
-                                     (aref tex-coords (aref idx ti)))
-                          :when vdi
-                            :do
-                               (setf (aref these-vdatas i)
-                                     (aref v-params (aref idx vdi)))
-                          :finally (return (values these-verts
-                                                   these-norms
-                                                   these-texs
-                                                   these-vdatas)))
-
-                  (funcall handler (make-instance 'geometry
-                                                  :material the-material
-                                                  :vertices these-verts
-                                                  :normals these-normals
-                                                  :tex-coords these-texs
-                                                  :vdata these-vdatas)))))))))))
+            (funcall handler (make-instance 'geometry
+                                     :material the-material
+                                     :vertices (get-vertices obj-file face)
+                                     :normals (get-normals obj-file face)
+                                     :tex-coords (get-tex-coords obj-file face)))))))))
 
 
 (defun estimate-triangle-count (obj-file)
@@ -145,6 +128,7 @@
       (with-each-group (group obj)
         (incf estimate (length (faces group)))))
     estimate))
+
 (defun estimate-line-count (obj-file)
   (let ((estimate 0))
     (with-each-object (obj obj-file)
@@ -152,65 +136,56 @@
         (incf estimate (length (lines group)))))
     estimate))
 
+(defun estimate-point-count (obj-file)
+  (let ((estimate 0))
+    (with-each-object (obj obj-file)
+      (with-each-group (group obj)
+        (incf estimate (length (points group)))))
+    estimate))
+
 
 (defun collect-geometry (obj-file)
   "Triangulate obj-file and call handler for each triangle."
-  (let ((triangles
-          (make-array (estimate-triangle-count obj-file) :initial-element nil :adjustable t :fill-pointer 0 :element-type '(or null geometry))))
+  (let* ((estimated-size (+ (estimate-triangle-count obj-file)
+                            (estimate-line-count obj-file)
+                            (estimate-point-count obj-file)))
+         (triangles
+           (make-array estimated-size
+                       :initial-element nil
+                       :adjustable t
+                       :fill-pointer 0
+                       :element-type '(or null geometry))))
     (with-each-object (obj obj-file)
       (with-slots (vertices normals tex-coords v-params) obj
         (with-each-group (group obj)
+          (format t "Processing group: ~a~%" (group-name group))
           (let ((the-material (if (material group)
                                   (get-material (material group) obj-file)
                                   (get-material "default" obj-file))))
 
             (with-each-face (face group)
-              (let* ((idx-format (idx-format face))
-                     (vi (vertex-index idx-format))
-                     (ni (normal-index idx-format))
-                     (ti (tex-index idx-format))
-                     (vdi (vdata-index idx-format)))
-                (with-slots (indices) face
-                  (multiple-value-bind (these-verts these-normals these-texs these-vdatas)
-                      (loop :with these-verts = (when vi (make-array (length indices) :initial-element (vec3 0 0 0) :element-type 'vec3))
-                            :with these-norms = (when ni (make-array (length indices) :initial-element (vec3 0 0 0) :element-type 'vec3))
-                            :with these-texs = (when ti (make-array (length indices) :initial-element (vec2 0 0) :element-type 'vec2))
-                            :with these-vdatas = (when vdi (make-array (length indices) :element-type 'single-float))
-                            :for i :from 0
-                            :for idx :across indices
-                            :when vi
-                              :do
-                                 (setf  (aref these-verts i)
-                                        (aref vertices (aref idx vi)))
-                            :when ni
-                              :do
-                                 (setf (aref these-norms i)
-                                       (aref normals (aref idx  ni)))
-                            :when ti
-                              :do
-                                 (setf (aref these-texs i)
-                                       (aref tex-coords (aref idx ti)))
-                            :when vdi
-                              :do
-                                 (setf (aref these-vdatas i)
-                                       (aref v-params (aref idx vdi)))
-                            :finally (return (values these-verts
-                                                     these-norms
-                                                     these-texs
-                                                     these-vdatas)))
-
-                    (vector-push-extend (make-instance 'geometry
-                                                       :material the-material
-                                                       :vertices these-verts
-                                                       :normals these-normals
-                                                       :tex-coords these-texs
-                                                       :vdata these-vdatas)
-                                        triangles)))))))))
+              (vector-push-extend (make-instance 'geometry
+                                                 :material the-material
+                                                 :vertices (get-vertices obj-file face)
+                                                 :normals (get-normals obj-file face)
+                                                 :tex-coords (get-tex-coords obj-file face))
+                                  triangles))
+            (with-each-line (line group)
+              (vector-push-extend (make-instance 'geometry
+                                                 :material the-material
+                                                 :vertices (get-vertices obj-file line)
+                                                 :tex-coords (get-tex-coords obj-file line))
+                                  triangles))
+            (with-each-point (point group)
+              (vector-push-extend (make-instance 'geometry
+                                                 :material the-material
+                                                 :vertices (get-vertices obj-file point))
+                                  triangles))))))
     triangles))
 
-(defun sort-geometry (triangles point &key (predicate #'<))
+(defun sort-geometry (triangles point &key (predicate #'>))
   "Sort triangles by their distance from the specified point."
   (sort triangles predicate
         :key (lambda (val)
-               (vdistance (v* (/ 1.0 3.0) (apply #'v+ (coerce (vertices val) 'list)))
+               (vdistance (v* (/ 1.0 (length (vertices val))) (apply #'v+ (coerce (vertices val) 'list)))
                           point))))

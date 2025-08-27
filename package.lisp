@@ -60,13 +60,13 @@
            #:points
 
            #:obj-geometry
-           #:idx-format
+           #:obj-idx
+           #:has-vertex
+           #:has-tex
+           #:has-normal
            #:indices
-           #:format-stride
-           #:stride
            #:obj-face
            #:obj-line
-           #:format-stride
            #:bounding-box
            #:min-x
            #:min-y
