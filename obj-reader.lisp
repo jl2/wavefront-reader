@@ -56,6 +56,7 @@ A name and hashtable of surface attributes."))
     (add-attribute mat "Kd" (vec3 0.0 0.9 0.0))
     (add-attribute mat "Ka" (vec3 0.1 0.1 0.1))
     (add-attribute mat "Ks" (vec3 1.0 1.0 1.0))
+    (add-attribute mat "Ns" 20.0)
     (add-attribute mat "roughness" 80.0)
     mat))
 
@@ -259,6 +260,7 @@ Geometric groups collections of faces, lines, and points that index into the ver
            (aref (vertices object) 0) (aref (vertices object) (1- (length (vertices object))))))
 
 (defgeneric get-material (which obj))
+
 (defmethod get-material ((name string) (obj obj-file))
   (with-slots (materials) obj
     (gethash name materials)))
@@ -458,8 +460,7 @@ fixup-negative-indices converts these index values into positive, 0 based indice
 
 (defun read-obj (ins &optional (path (pathname "object.obj")))
   "Read a WaveFront OBJ file into memory."
-  (let* ((materials (make-hash-table :test 'equal))
-         (current-group nil)
+  (let* ((current-group nil)
          (current-object nil)
          (anon-group-count 0)
          (anon-obj-count 0)
@@ -560,8 +561,8 @@ fixup-negative-indices converts these index values into positive, 0 based indice
         (add-group (ensure-object) current-group))
       (when current-object
         (add-object return-value current-object))
-      (when (zerop (hash-table-count materials))
-        (setf (gethash "default" materials) (default-material)))
+      (when (zerop (hash-table-count (materials return-value)))
+        (setf (gethash "default" (materials return-value)) (default-material)))
       return-value)))
 
 (defmacro with-each-object ((obj-var obj-file)

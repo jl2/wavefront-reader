@@ -113,9 +113,12 @@
       (with-slots (vertices normals tex-coords v-params) obj
         (with-each-group (group obj)
           (format t "Processing group: ~a~%" (group-name group))
-          (let ((the-material (if (material group)
-                                  (get-material (material group) obj-file)
-                                  (get-material "default" obj-file))))
+          (let ((the-material (cond ((null (material group))
+                                     (get-material "default" obj-file))
+                                    (t
+                                     (if-let (the-mat (get-material (material group) obj-file))
+                                       the-mat
+                                       (get-material "default" obj-file))))))
 
             (with-each-face (face group)
               (vector-push-extend (make-instance 'geometry
