@@ -16,31 +16,7 @@
 
 (in-package :obj-reader)
 
-(defclass bounding-box ()
-  ((max-corner :type vec3
-               :initform (vec3 most-negative-single-float
-                               most-negative-single-float
-                               most-negative-single-float)
-               :initarg :max-corner
-               :accessor max-corner)
-   (min-corner :type vec3
-               :initform (vec3 most-positive-single-float
-                               most-positive-single-float
-                               most-positive-single-float)
-               :initarg :min-corner
-               :accessor min-corner)))
-
-(defun expand (bb new-pt)
-  (with-slots (max-corner min-corner) bb
-    (setf (vx min-corner) (min (vx min-corner) (vx new-pt)))
-    (setf (vx max-corner) (max (vx max-corner) (vx new-pt)))
-    (setf (vy min-corner) (min (vy min-corner) (vy new-pt)))
-    (setf (vy max-corner) (max (vy max-corner) (vy new-pt)))
-    (setf (vz min-corner) (min (vz min-corner) (vz new-pt)))
-    (setf (vz max-corner) (max (vz max-corner) (vz new-pt)))
-    ))
-
-(defun bounding-box (obj)
+(defun compute-bounding-box (obj)
   (declare (type obj-file obj)
            (optimize (speed 3)))
   (let ((bb (make-instance 'bounding-box)))
@@ -50,30 +26,6 @@
         :do
            (expand bb pt)))
     bb))
-
-(defun get-vertex (obj-file idx)
-  (aref (slot-value obj-file 'vertices) idx))
-(defun get-normal (obj-file idx)
-  (aref (slot-value obj-file 'normals) idx))
-(defun get-tex-coord (obj-file idx)
-  (aref (slot-value obj-file 'tex-coords) idx))
-
-
-(defun get-vertices (obj-file face)
-  (map 'vector
-       (curry #'get-vertex obj-file)
-       (slot-value face 'vertices)))
-(defun get-normals (obj-file face)
-  (map 'vector
-       (curry #'get-normal obj-file)
-       (slot-value face 'normals))
-  )
-(defun get-tex-coords (obj-file face)
-  (map 'vector
-       (curry #'get-tex-coord obj-file)
-       (slot-value face 'tex-coords)))
-
-
 
 
 (defclass geometry ()
@@ -188,9 +140,13 @@
                                   triangles))))))
     triangles))
 
+(defun center-point (verts)
+  (v* (/ 1.0 (length verts))
+      (apply #'v+ (coerce verts 'list))))
+
 (defun sort-geometry (triangles point &key (predicate #'>))
   "Sort triangles by their distance from the specified point."
   (sort triangles predicate
         :key (lambda (val)
-               (vdistance (v* (/ 1.0 (length (vertices val))) (apply #'v+ (coerce (vertices val) 'list)))
+               (vdistance (center-point (vertices val))
                           point))))

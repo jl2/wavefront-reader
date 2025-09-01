@@ -65,6 +65,29 @@ A name and hashtable of surface attributes."))
   (with-slots (attributes) material
     (gethash name attributes)))
 
+(defclass bounding-box ()
+  ((max-corner :type vec3
+               :initform (vec3 most-negative-single-float
+                               most-negative-single-float
+                               most-negative-single-float)
+               :initarg :max-corner
+               :accessor max-corner)
+   (min-corner :type vec3
+               :initform (vec3 most-positive-single-float
+                               most-positive-single-float
+                               most-positive-single-float)
+               :initarg :min-corner
+               :accessor min-corner)))
+
+(defun bb-center (bb)
+  (declare (type bounding-box bb))
+  (with-slots (min-corner max-corner) bb
+    (v* 0.5 (v+ min-corner max-corner))))
+
+(defmethod print-object ((object bounding-box) stream)
+  (with-slots (min-corner max-corner) object
+    (format stream "(bounding-box ~a ~a)" min-corner max-corner)))
+
 (defclass obj-geometry ()
   ((vertices :initarg :indices
              :accessor vertices
@@ -109,6 +132,11 @@ and indices contains the indices themselves."))
    (material :initform nil
              :accessor material
              :type (or null string))
+
+   (bounding-box :initform (make-instance 'bounding-box)
+                 :type bounding-box
+                 :accessor bounding-box)
+
    (faces :initform (make-array 0
                                 :element-type 'obj-face
                                 :initial-contents '()
@@ -135,9 +163,36 @@ The group is made up of faces, lines, and points whose vertex data indexes into 
   ((object-name :initarg :object-name :type string
                 :accessor object-name)
    (groups :initform (make-hash-table :test 'equal)
-           :accessor groups))
+           :accessor groups)
+   (bounding-box :initform (make-instance 'bounding-box)
+                 :type bounding-box
+                 :accessor bounding-box))
   (:documentation "A collection of geometry groups and vertex data (including vertices, normals, and texture parameters) that makes up an OBJ file.
 Geometric groups collections of faces, lines, and points that index into the vertex data."))
+
+(declaim (inline get-vertex get-normal get-tex-coord))
+(defun get-vertex (obj-file idx)
+  (aref (slot-value obj-file 'vertices) idx))
+(defun get-normal (obj-file idx)
+  (aref (slot-value obj-file 'normals) idx))
+(defun get-tex-coord (obj-file idx)
+  (aref (slot-value obj-file 'tex-coords) idx))
+
+
+(defun get-vertices (obj-file geo)
+  (map 'vector
+       (curry #'get-vertex obj-file)
+       (slot-value geo 'vertices)))
+
+(defun get-normals (obj-file geo)
+  (map 'vector
+       (curry #'get-normal obj-file)
+       (slot-value geo 'normals)))
+
+(defun get-tex-coords (obj-file geo)
+  (map 'vector
+       (curry #'get-tex-coord obj-file)
+       (slot-value geo 'tex-coords)))
 
 
 (defclass obj-file ()
@@ -151,6 +206,9 @@ Geometric groups collections of faces, lines, and points that index into the ver
          :type pathname
          :accessor path)
 
+   (bounding-box :initform (make-instance 'bounding-box)
+                 :type bounding-box
+                 :accessor bounding-box)
    (vertices :initform (make-array 0
                                    :element-type '(or vec3 vec4)
                                    :initial-contents '()
@@ -252,10 +310,13 @@ fixup-negative-indices converts these index values into positive, 0 based indice
   (declare (type string operands)
            (type obj-file obj-file)
            (type obj-group group))
-  (with-slots (points) group
-    (dolist (idx (str:words operands))
-      (vector-push-extend (fixup-negative-index obj-file 'vertices (maybe-read-string idx))
-                          points))))
+  (with-slots (bounding-box points) group
+    (loop :for raw-idx :in (str:words operands)
+          :for fixed-idx = (fixup-negative-index obj-file 'vertices (maybe-read-string raw-idx))
+          :for vert = (aref points fixed-idx)
+          :do
+             (expand bounding-box vert)
+             (vector-push-extend fixed-idx points))))
 
 (defun maybe-add (obj-file what value vector)
   (when-let (idx (fixup-negative-index obj-file what value))
@@ -287,8 +348,10 @@ fixup-negative-indices converts these index values into positive, 0 based indice
   (declare (type obj-file obj-file)
            (type string operands)
            (type obj-group group))
-  (with-slots (lines) group
-    (vector-push-extend (read-obj-line obj-file operands) lines)))
+  (with-slots (lines bounding-box) group
+    (let ((the-line (read-obj-line obj-file operands)))
+      (expand bounding-box (get-vertices obj-file the-line))
+      (vector-push-extend the-line lines))))
 
 
 
@@ -312,7 +375,7 @@ fixup-negative-indices converts these index values into positive, 0 based indice
               (maybe-add obj-file 'tex-coords (second parts) tex-coords))
              (3
               (maybe-add obj-file 'vertices (first parts) vertices)
-              
+
               (when (not (null (second parts)))
                 (maybe-add obj-file 'normals (second parts) normals))
               (maybe-add obj-file 'normals (third parts) normals)))))
@@ -324,8 +387,10 @@ fixup-negative-indices converts these index values into positive, 0 based indice
            (type string operands)
            (type obj-group group))
 
-  (with-slots (faces) group
-    (vector-push-extend (read-obj-face obj-file operands) faces)))
+  (with-slots (faces bounding-box) group
+    (let ((the-face (read-obj-face obj-file operands)))
+      (expand bounding-box (get-vertices obj-file the-face))
+      (vector-push-extend the-face faces))))
 
 (defun add-group (obj group)
   "Add a new group to obj."
@@ -348,14 +413,33 @@ fixup-negative-indices converts these index values into positive, 0 based indice
       (error "Too many values - expected 1-4! ~a" operands))
     (apply (aref converters (- (length numbers) 1)) numbers)))
 
+
+(defgeneric expand (bb thing))
+
+(defmethod expand (bb (new-pt vec3))
+  (with-slots (max-corner min-corner) bb
+    (setf (vx min-corner) (min (vx min-corner) (vx new-pt)))
+    (setf (vx max-corner) (max (vx max-corner) (vx new-pt)))
+    (setf (vy min-corner) (min (vy min-corner) (vy new-pt)))
+    (setf (vy max-corner) (max (vy max-corner) (vy new-pt)))
+    (setf (vz min-corner) (min (vz min-corner) (vz new-pt)))
+    (setf (vz max-corner) (max (vz max-corner) (vz new-pt)))
+    ))
+
+(defmethod expand (bb (seq sequence))
+  (map nil (lambda (pt) (expand bb pt)) seq))
+
 (defun add-vertex-data (obj operator operands)
   "Add a new vertex, normal, texture coordinate or parameter to obj."
   (declare (type obj-file obj)
            (type string operator operands))
   (let ((parts (str:split " " operands)))
     (cond ((string= "v" operator)
-           (vector-push-extend (read-value parts)
-                               (slot-value obj 'vertices)))
+           (with-slots (vertices bounding-box) obj
+             (let ((vert (read-value parts)))
+               (vector-push-extend vert vertices)
+               (expand bounding-box vert))))
+
           ((string= "vn" operator)
            (vector-push-extend (read-value parts)
                                (slot-value obj 'normals)))
@@ -379,7 +463,7 @@ fixup-negative-indices converts these index values into positive, 0 based indice
          (current-object nil)
          (anon-group-count 0)
          (anon-obj-count 0)
-      
+
          (return-value (make-instance 'obj-file
                                       :path path)))
 
@@ -413,7 +497,7 @@ fixup-negative-indices converts these index values into positive, 0 based indice
           :do
              (loop :for (material-name . material) :in (read-mtl-from-file operands) :do
                (setf (gethash material-name (materials return-value)) material))
-             
+
 
              ;; object name - operands are words of the name
         :when (string= "o" operator)
@@ -440,7 +524,7 @@ fixup-negative-indices converts these index values into positive, 0 based indice
           :do
              (with-slots (material) (ensure-group)
                (setf material operands))
-             
+
              ;; Vertex - operands are x y z [w]
              ;; Normal - operands are i j k
              ;; Texture coordinate - operands are  u [v [w]]

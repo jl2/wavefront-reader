@@ -74,7 +74,9 @@
            #:max-x
            #:max-y
            #:max-z
-
+           #:bounding-box
+           #:bb-center
+           #:expand
            #:with-each-object
            #:with-each-group
            #:with-each-face
@@ -94,5 +96,6 @@
            #:has-material
            #:map-geometry
            #:collect-geometry
+           #:center-point
            #:sort-geometry
            ))
