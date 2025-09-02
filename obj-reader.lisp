@@ -399,14 +399,24 @@ fixup-negative-indices converts these index values into positive, 0 based indice
   (declare (type obj-object obj)
            (type obj-group group))
   (with-slots (groups) obj
-    (setf (gethash (group-name group) groups) group)))
+    (multiple-value-bind (value exists) (gethash (group-name group) groups)
+      (if exists
+          (progn
+            (push group value)
+            (setf (gethash (group-name group) groups) value))
+          (setf (gethash (group-name group) groups) (list group))))))
 
 (defun add-object (obj-file obj)
   "Add a new group to obj."
   (declare (type obj-file obj-file)
            (type obj-object obj))
   (with-slots (objects) obj-file
-    (setf (gethash (object-name obj) objects) obj)))
+    (multiple-value-bind (value exists) (gethash (object-name obj) objects)
+      (if exists
+          (progn
+            (push obj value)
+            (setf (gethash (object-name obj) objects) value))
+          (setf (gethash (object-name obj) objects) (list obj))))))
 
 (defun read-value (operands)
   (let ((numbers (mapcar #'read-from-string operands))
@@ -567,21 +577,31 @@ fixup-negative-indices converts these index values into positive, 0 based indice
 
 (defmacro with-each-object ((obj-var obj-file)
                             &body body)
-  `(loop :for ,obj-var
-           :being :the hash-values
-             :of (objects ,obj-file)
-         :do
-            (progn
-              ,@body)))
+  (let ((obj-list (gensym "obj-list")))
+    `(loop
+       :for ,obj-list
+         :being :the hash-values
+           :of (objects ,obj-file)
+       :do
+          (loop
+            :for ,obj-var :in ,obj-list
+            :do
+               (progn
+                 ,@body)))))
 
 (defmacro with-each-group ((group-var obj-object)
                             &body body)
-  `(loop :for ,group-var
-           :being :the hash-values
-             :of (groups ,obj-object)
-         :do
-            (progn
-              ,@body)))
+  (let ((group-list (gensym "group-list")))
+    `(loop
+       :for ,group-list
+         :being :the hash-values
+           :of (groups ,obj-object)
+       :do
+          (loop
+            :for ,group-var :in ,group-list
+            :do
+               (progn
+                 ,@body)))))
 
 (defmacro with-each-face ((face-var group)
                             &body body)
